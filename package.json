@@ -9,7 +9,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build:test && node scripts/test-csv.mjs",
+    "build:test": "esbuild src/lib/csv.ts --bundle --format=esm --platform=node --outfile=.tmp/csv.mjs --log-level=error"
   },
   "dependencies": {
     "react": "^18.3.1",

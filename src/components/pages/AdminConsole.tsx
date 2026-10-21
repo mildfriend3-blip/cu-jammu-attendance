@@ -1,7 +1,14 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { SUBJECTS } from "../../data/timetable";
 import { computeTotals, logKey, percentage, sessionsOn, subjectHeld } from "../../lib/attendance";
 import { rosterCSV, downloadFile, subjectSummaryCSV } from "../../lib/export";
+import {
+  groupByRoll,
+  importReportCsv,
+  parseAttendanceCsv,
+  templateCsv,
+  type ImportPreview,
+} from "../../lib/csv";
 import { fromISODate, prettyDate, toISODate, weekdayName } from "../../lib/date";
 import { loadFacultyPasscode, loadLog, loadSettings, listAccounts, saveLog } from "../../lib/storage";
 import { useAttendance } from "../../state/AttendanceContext";
@@ -21,6 +28,10 @@ export default function AdminConsole() {
   const [codeError, setCodeError] = useState<string | null>(null);
   const [dateStr, setDateStr] = useState(toISODate(new Date()));
   const [refreshKey, setRefreshKey] = useState(0);
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [importName, setImportName] = useState<string | null>(null);
+  const [applied, setApplied] = useState<{ rows: number; students: number } | null>(null);
+  const importRef = useRef<HTMLInputElement>(null);
 
   const roster = useMemo(() => {
     void refreshKey;
@@ -47,6 +58,38 @@ export default function AdminConsole() {
   }, [roster]);
 
   const shortCount = roster.filter((r) => r.pct !== null && r.pct < r.target).length;
+
+  function handleImportFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result ?? "");
+      const accounts = listAccounts();
+      const rolls = new Set(accounts.map((a) => a.roll));
+      const existing = new Set<string>();
+      for (const a of accounts) {
+        for (const key of Object.keys(loadLog(a.roll))) existing.add(`${a.roll}|${key}`);
+      }
+      const parsed = parseAttendanceCsv(text, rolls, existing);
+      setPreview(parsed);
+      setImportName(file.name);
+      setApplied(null);
+      if (parsed.rows.length === 0) push("Nothing importable — check the report below", "error");
+    };
+    reader.readAsText(file);
+  }
+
+  function applyImport() {
+    if (!preview || preview.rows.length === 0) return;
+    const grouped = groupByRoll(preview.rows);
+    for (const [roll, rows] of grouped) {
+      const log = { ...loadLog(roll) };
+      for (const row of rows) log[logKey(row.iso, row.slot)] = row.status;
+      saveLog(roll, log);
+    }
+    setApplied({ rows: preview.rows.length, students: grouped.size });
+    setRefreshKey((k) => k + 1);
+    push(`Applied ${preview.rows.length} marks across ${grouped.size} student(s)`, "success");
+  }
 
   function unlock() {
     if (code === loadFacultyPasscode()) {
@@ -184,6 +227,145 @@ export default function AdminConsole() {
           <div className="hint" style={{ marginTop: 12 }}>
             {prettyDate(fromISODate(dateStr))} — this overwrites any existing marks for those slots on every account.
           </div>
+        </CardBody>
+      </Card>
+
+      <Card style={{ marginBottom: 14 }}>
+        <CardHead
+          title="Import attendance (CSV)"
+          sub="Bulk-load marks taken on paper or in a spreadsheet — one row per class"
+          actions={
+            <>
+              <Button
+                size="sm"
+                icon="download"
+                onClick={() => {
+                  downloadFile("sentinel-import-template.csv", templateCsv(), "text/csv;charset=utf-8");
+                  push("Template downloaded");
+                }}
+              >
+                Template
+              </Button>
+              <Button size="sm" variant="outline" icon="upload" onClick={() => importRef.current?.click()}>
+                Choose file
+              </Button>
+            </>
+          }
+        />
+        <CardBody>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImportFile(file);
+              e.target.value = "";
+            }}
+          />
+
+          {!preview && (
+            <>
+              <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 10 }}>
+                Expected columns — header row required, order does not matter:
+              </div>
+              <pre
+                className="mono"
+                style={{
+                  margin: 0,
+                  padding: "12px 14px",
+                  background: "var(--bg-elev)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "var(--r-sm)",
+                  fontSize: 12,
+                  overflowX: "auto",
+                }}
+              >{`roll,date,slot,status
+26BECCS533,2026-10-20,A,P
+26BECCS533,2026-10-20,B,A
+26BECCS501,20/10/2026,C,present`}</pre>
+              <div className="hint" style={{ marginTop: 10 }}>
+                <b>slot</b> is A–I. <b>status</b> accepts P/A/C or present/absent/cancelled. Dates accept
+                YYYY-MM-DD or DD/MM/YYYY. Comma, semicolon and tab separated files all work. Every row is validated
+                before anything is written, so a bad line never half-imports.
+              </div>
+            </>
+          )}
+
+          {preview && (
+            <>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+                <Badge tone="info">{importName}</Badge>
+                <Badge tone={preview.rows.length ? "ok" : "bad"}>{preview.rows.length} valid row(s)</Badge>
+                {preview.issues.length > 0 && <Badge tone="warn">{preview.issues.length} skipped</Badge>}
+                {preview.overwrites > 0 && <Badge tone="warn">{preview.overwrites} will overwrite</Badge>}
+                {applied && <Badge tone="ok">applied · {applied.rows} rows / {applied.students} students</Badge>}
+              </div>
+
+              {preview.notes.map((n) => (
+                <div key={n} className="hint" style={{ marginBottom: 8 }}>
+                  <Icon name="info" size={12} style={{ verticalAlign: "-2px", marginRight: 5 }} />
+                  {n}
+                </div>
+              ))}
+
+              {preview.issues.length > 0 && (
+                <div
+                  style={{
+                    border: "1px solid var(--line)",
+                    borderLeft: "3px solid var(--warn)",
+                    borderRadius: "var(--r-sm)",
+                    background: "var(--surface-2)",
+                    padding: "10px 12px",
+                    marginBottom: 12,
+                    maxHeight: 190,
+                    overflowY: "auto",
+                  }}
+                >
+                  {preview.issues.slice(0, 40).map((issue, i) => (
+                    <div key={`${issue.line}-${i}`} className="mono" style={{ fontSize: 11.5, lineHeight: 1.8 }}>
+                      <span style={{ color: "var(--warn)" }}>line {issue.line}</span>{" "}
+                      <span style={{ color: "var(--ink-2)" }}>{issue.message}</span>
+                    </div>
+                  ))}
+                  {preview.issues.length > 40 && (
+                    <div className="hint">…and {preview.issues.length - 40} more (see the report).</div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Button
+                  variant="solid"
+                  icon="check"
+                  disabled={preview.rows.length === 0 || Boolean(applied)}
+                  onClick={applyImport}
+                >
+                  {applied ? "Applied" : `Apply ${preview.rows.length} row(s)`}
+                </Button>
+                <Button
+                  icon="download"
+                  onClick={() =>
+                    downloadFile("sentinel-import-report.csv", importReportCsv(preview.rows, preview.issues), "text/csv;charset=utf-8")
+                  }
+                >
+                  Download report
+                </Button>
+                <Button
+                  variant="ghost"
+                  icon="refresh"
+                  onClick={() => {
+                    setPreview(null);
+                    setImportName(null);
+                    setApplied(null);
+                  }}
+                >
+                  Clear
+                </Button>
+              </div>
+            </>
+          )}
         </CardBody>
       </Card>
 

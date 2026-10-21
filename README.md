@@ -52,6 +52,13 @@ anywhere for free.
 - Passcode-gated class-wide view: cohort rate, per-subject cohort breakdown,
   full roster sorted by risk, bulk marking for a date across all accounts, and
   CSV export per student or for the whole roster.
+- **Bulk CSV import** — load attendance taken on paper or in a spreadsheet. Every
+  row is validated against the registered rolls and the timetable before anything
+  is written (unknown roll, weekend date, no class in that slot, bad status and
+  duplicates are each reported with their line number), so a bad row never
+  half-imports. Accepts comma/semicolon/tab separators, `YYYY-MM-DD` or
+  `DD/MM/YYYY` dates, and `P`/`A`/`C` or `present`/`absent`/`cancelled`. Includes a
+  downloadable template and an import report.
 
 **History & data**
 - Day-grouped audit trail with filters and jump-to-edit.
@@ -78,6 +85,7 @@ npm run dev      # http://localhost:5173
 | `npm run build` | Type-check, then build to `dist/` |
 | `npm run preview` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` only |
+| `npm test` | Unit tests for the CSV import validator (29 assertions) |
 
 Requires Node 18+ (Node 20 recommended).
 
@@ -105,6 +113,29 @@ no rewrite rules.
 
 ---
 
+## Tests
+
+```bash
+npm test
+```
+
+Bundles `src/lib/csv.ts` with esbuild and runs `scripts/test-csv.mjs` under Node —
+29 assertions covering quoted fields, escaped quotes, BOM and blank-line handling,
+delimiter detection, both date formats, and every validation branch of the import
+(unknown roll, weekend, out-of-range slot, slot with no class, bad status,
+duplicate row, missing columns, overwrite counting).
+
+---
+
+## Docs
+
+- [`docs/timetable-data.md`](docs/timetable-data.md) — how the schedule data is
+  shaped and how to adapt it to another class.
+- [`docs/backend-migration.md`](docs/backend-migration.md) — the trade-offs and
+  concrete steps for moving from local storage to a hosted backend.
+
+---
+
 ## Architecture
 
 ```
@@ -116,6 +147,7 @@ src/
     storage.ts                 Versioned localStorage: accounts, sessions, logs, settings
     attendance.ts              Session lookup, totals, percentages, bunk maths
     analytics.ts               Series, rolling rates, streaks, heatmap, projections
+    csv.ts                     CSV parsing + import validation (unit-tested)
     export.ts                  CSV builders and file download
     date.ts                    ISO / weekday helpers
   state/
@@ -130,6 +162,8 @@ src/
     pages/                     Overview, Timetable, MarkDay, Subjects, Insights,
                                History, AdminConsole, Settings
   styles.css                   Design tokens and all component styling
+scripts/test-csv.mjs           Node test runner for the CSV validator
+docs/                          Data model and backend migration notes
 ```
 
 ### Data model
