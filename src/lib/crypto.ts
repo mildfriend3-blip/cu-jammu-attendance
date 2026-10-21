@@ -78,32 +78,73 @@ export function randomToken(bytes = 24): string {
 export interface PasswordScore {
   score: 0 | 1 | 2 | 3 | 4;
   label: string;
+  /** Hard requirements that are NOT met. Empty means the password is acceptable. */
   problems: string[];
+  /** Advisory notes. These are shown to the user but never block sign-up. */
+  warnings: string[];
 }
 
-/** Lightweight strength meter — feedback only, not a policy gate. */
+/**
+ * Strength meter.
+ *
+ * Policy (deliberately NIST SP 800-63B shaped): only two things *block* sign-up —
+ * failing the length/character minimums, and matching a known common password.
+ * Everything else — no symbol, no uppercase, contains your name — is reported as
+ * advice and never rejected, because composition rules push people toward
+ * predictable passwords without adding much real entropy.
+ */
+const COMMON_PASSWORDS = [
+  "password", "passw0rd", "pass123", "123456", "12345678", "123456789", "12345",
+  "qwerty", "qwertyuiop", "abc123", "letmein", "welcome", "admin", "administrator",
+  "iloveyou", "monkey", "dragon", "football", "cricket", "india", "college",
+  "student", "sentinel", "changeme", "secret", "master", "sunshine", "princess",
+  "superman", "batman", "trustno1", "hello123",
+];
+
+const LABELS = ["Very weak", "Weak", "Fair", "Good", "Strong"] as const;
+
 export function scorePassword(password: string, roll = "", name = ""): PasswordScore {
   const problems: string[] = [];
-  if (password.length < 8) problems.push("at least 8 characters");
-  if (!/[a-z]/.test(password)) problems.push("a lowercase letter");
-  if (!/[A-Z]/.test(password)) problems.push("an uppercase letter");
-  if (!/\d/.test(password)) problems.push("a digit");
-  if (!/[^A-Za-z0-9]/.test(password)) problems.push("a symbol");
+  const warnings: string[] = [];
+  const lower = password.toLowerCase();
 
+  // --- hard requirements -------------------------------------------------
+  if (password.length < 8) problems.push("at least 8 characters");
+  if (password.length > 0 && !/[A-Za-z]/.test(password)) problems.push("a letter");
+  if (password.length > 0 && !/\d/.test(password)) problems.push("a digit");
+  if (password.length >= 8 && new Set(password).size === 1) {
+    problems.push("more than one repeated character");
+  }
+
+  const common = COMMON_PASSWORDS.find((c) => lower.includes(c));
+  if (common && password.length >= 8) problems.push(`avoid the common password “${common}”`);
+
+  // --- composition score -------------------------------------------------
   let score = 0;
   if (password.length >= 8) score++;
   if (password.length >= 12) score++;
-  if (/[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password)) score++;
+  if (password.length >= 16) score++;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password)) score++;
   if (/[^A-Za-z0-9]/.test(password)) score++;
+  score = Math.min(score, 4);
 
-  const lowered = password.toLowerCase();
-  const banned = ["password", "123456", "qwerty", "admin", "college", "sentinel"];
-  if (banned.some((b) => lowered.includes(b))) score = Math.min(score, 1) as PasswordScore["score"];
-  if (roll && lowered.includes(roll.toLowerCase())) score = Math.min(score, 1) as PasswordScore["score"];
-  if (name && name.length > 3 && lowered.includes(name.toLowerCase().split(" ")[0])) {
-    score = Math.min(score, 1) as PasswordScore["score"];
+  // --- advisory penalties: deduct a tier, never force it to the floor -----
+  const floor = problems.length ? 0 : 1;
+  const firstName = name.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+
+  if (firstName.length > 2 && lower.includes(firstName)) {
+    warnings.push("it contains your name");
+    score = Math.max(floor, score - 1);
+  }
+  const rollKey = roll.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (rollKey.length > 2 && lower.replace(/[^a-z0-9]/g, "").includes(rollKey)) {
+    warnings.push("it contains your roll number");
+    score = Math.max(floor, score - 1);
   }
 
-  const labels = ["Very weak", "Weak", "Fair", "Strong", "Excellent"];
-  return { score: score as PasswordScore["score"], label: labels[score], problems };
+  if (problems.length === 0 && warnings.length === 0 && score <= 2) {
+    warnings.push("a longer password or a symbol would make it stronger");
+  }
+
+  return { score: score as PasswordScore["score"], label: LABELS[score], problems, warnings };
 }

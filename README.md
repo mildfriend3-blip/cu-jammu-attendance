@@ -22,8 +22,13 @@ anywhere for free.
 **Accounts**
 - Roll-number sign-up and sign-in, one account per roll number **and** per name
   (both uniqueness checks are case-insensitive).
-- PBKDF2-SHA256 password hashing with a per-account random salt; live strength
-  meter with a blocklist for common and identity-derived passwords.
+- PBKDF2-SHA256 password hashing with a per-account random salt, plus a live
+  strength meter.
+- Password policy is deliberately NIST SP 800-63B shaped: sign-up is blocked only
+  by the length/character minimums and by matching a known common password.
+  Everything else — no symbol, no uppercase, contains your name or roll number —
+  is reported as advice and never rejected, because composition rules push people
+  toward predictable passwords without adding much real entropy.
 - "Keep me signed in" (30-day session) vs. tab-only session, plus a
   registered-accounts list for shared devices.
 - Student and faculty account types.
@@ -85,7 +90,7 @@ npm run dev      # http://localhost:5173
 | `npm run build` | Type-check, then build to `dist/` |
 | `npm run preview` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` only |
-| `npm test` | Unit tests for the CSV import validator (29 assertions) |
+| `npm test` | Unit tests for the CSV validator and the password scorer (65 assertions) |
 
 Requires Node 18+ (Node 20 recommended).
 
@@ -119,11 +124,18 @@ no rewrite rules.
 npm test
 ```
 
-Bundles `src/lib/csv.ts` with esbuild and runs `scripts/test-csv.mjs` under Node —
-29 assertions covering quoted fields, escaped quotes, BOM and blank-line handling,
-delimiter detection, both date formats, and every validation branch of the import
-(unknown roll, weekend, out-of-range slot, slot with no class, bad status,
-duplicate row, missing columns, overwrite counting).
+Bundles `src/lib/csv.ts` and `src/lib/crypto.ts` with esbuild and runs both suites
+under Node — 65 assertions, no test framework needed.
+
+- `scripts/test-csv.mjs` (29) — quoted fields, escaped quotes, BOM and blank-line
+  handling, delimiter detection, both date formats, and every validation branch of
+  the import (unknown roll, weekend, out-of-range slot, slot with no class, bad
+  status, duplicate row, missing columns, overwrite counting).
+- `scripts/test-password.mjs` (36) — the scorer's hard requirements, blocklist,
+  identity penalties, label thresholds, and two regression guards: that reasonable
+  passwords are never falsely rejected, and that any rejection always carries a
+  non-empty reason (an empty one used to render as "Password needs ." with nothing
+  after it).
 
 ---
 

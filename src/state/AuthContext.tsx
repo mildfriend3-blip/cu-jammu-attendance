@@ -54,6 +54,13 @@ const AuthContext = createContext<AuthValue | null>(null);
 const ROLL_RE = /^[A-Za-z0-9][A-Za-z0-9/_-]{2,23}$/;
 const NAME_RE = /^[A-Za-z][A-Za-z .'-]{1,47}$/;
 
+/** "a", "a and b", "a, b and c" */
+function formatList(items: string[]): string {
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
 function validateSignUp(input: SignUpInput): AuthResult | null {
   const roll = normaliseRoll(input.roll);
   const name = input.name.trim();
@@ -76,18 +83,13 @@ function validateSignUp(input: SignUpInput): AuthResult | null {
   if (nameTaken(name)) {
     return { ok: false, field: "name", message: "That name is already registered on this device." };
   }
-  if (input.password.length < 8) {
-    return { ok: false, field: "password", message: "Use at least 8 characters." };
-  }
-  if (!/[A-Za-z]/.test(input.password) || !/\d/.test(input.password)) {
-    return { ok: false, field: "password", message: "Include at least one letter and one digit." };
-  }
   const strength = scorePassword(input.password, roll, name);
-  if (strength.score < 2) {
+  if (strength.problems.length > 0) {
+    // Every rejection names a concrete requirement — the list is never empty.
     return {
       ok: false,
       field: "password",
-      message: `Password too weak — add ${strength.problems.slice(0, 2).join(" and ")}.`,
+      message: `Password needs ${formatList(strength.problems)}.`,
     };
   }
   if (input.password !== input.confirm) {

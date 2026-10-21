@@ -25,6 +25,12 @@ export default function AuthPage() {
 
   const strength = useMemo(() => scorePassword(password, roll, name), [password, roll, name]);
 
+  /** Advisory only — never blocks sign-up. */
+  const passwordHint = useMemo(() => {
+    if (mode !== "signup" || !password || strength.warnings.length === 0) return undefined;
+    return `Heads up: ${strength.warnings.join(", ")}.`;
+  }, [mode, password, strength]);
+
   function switchMode(next: Mode) {
     setMode(next);
     setError(null);
@@ -166,13 +172,7 @@ export default function AuthPage() {
               label="Password"
               htmlFor="password"
               error={error?.field === "password" ? error.message : undefined}
-              aside={
-                mode === "signup" ? (
-                  <span className="mono" style={{ textTransform: "none", letterSpacing: 0, color: strengthColors[strength.score] }}>
-                    {password ? strength.label : ""}
-                  </span>
-                ) : undefined
-              }
+              hint={passwordHint}
             >
               <div className="pw-wrap">
                 <Input
@@ -203,7 +203,7 @@ export default function AuthPage() {
                       <i key={i} style={{ background: i < strength.score ? strengthColors[strength.score] : undefined }} />
                     ))}
                   </div>
-                  <div className="lbl">{strength.score >= 3 ? "strong" : strength.score >= 2 ? "ok" : "weak"}</div>
+                  <div className="lbl">{password ? strength.label : ""}</div>
                 </div>
 
                 <Field label="Confirm password" htmlFor="confirm">
