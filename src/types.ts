@@ -76,6 +76,8 @@ export interface SessionEntry {
 
 export type Verdict = "ok" | "warn" | "bad" | "none";
 
+export type { DayLock, Locks } from "./lib/locks";
+
 export interface Advice {
   verdict: Verdict;
   text: string;

@@ -10,7 +10,7 @@ import { useAuth } from "../../state/AuthContext";
 import { useToast } from "../../state/ToastContext";
 import { Avatar, Badge, Button, Card, CardBody, CardHead, Field, Input, Segmented } from "../ui";
 import { Icon } from "../ui/icons";
-import type { Settings as SettingsModel, Status } from "../../types";
+import type { Locks, Settings as SettingsModel, Status } from "../../types";
 
 export default function Settings() {
   const { account, signOut } = useAuth();
@@ -47,9 +47,10 @@ export default function Settings() {
           roll?: string;
           settings?: Partial<SettingsModel>;
           log?: Record<string, Status>;
+          locks?: Locks;
         };
         if (!parsed || typeof parsed.log !== "object" || !parsed.log) throw new Error("bad shape");
-        replaceLog(parsed.log);
+        replaceLog(parsed.log, parsed.locks);
         if (parsed.settings) updateSettings(parsed.settings);
         push(`Imported ${Object.keys(parsed.log).length} records`, "success");
       } catch {

@@ -42,6 +42,10 @@ anywhere for free.
 **Attendance**
 - Mark Present / Absent / Cancelled per scheduled class on any date, with a
   weekday strip, bulk "all present" and "clear day".
+- **Submit & lock** — freezing a day makes its marks read-only, so attendance a
+  student has already reported cannot be quietly edited afterwards. Reopening a
+  day needs the faculty passcode. The guard lives in the state layer, not in the
+  components, so a locked day cannot be written even if the UI is bypassed.
 - Cancelled classes are excluded from every percentage.
 - Per-subject cards showing rate, counts, a 30-day trend and a plain-language
   verdict; overall ring gauge against a configurable target.
@@ -57,6 +61,9 @@ anywhere for free.
 - Passcode-gated class-wide view: cohort rate, per-subject cohort breakdown,
   full roster sorted by risk, bulk marking for a date across all accounts, and
   CSV export per student or for the whole roster.
+- **Lock control** — the roster shows how many days each student has frozen, with
+  a one-click reopen per student. Bulk marking skips locked days by default;
+  an explicit "override locks" switch forces it.
 - **Bulk CSV import** — load attendance taken on paper or in a spreadsheet. Every
   row is validated against the registered rolls and the timetable before anything
   is written (unknown roll, weekend date, no class in that slot, bad status and
@@ -90,7 +97,7 @@ npm run dev      # http://localhost:5173
 | `npm run build` | Type-check, then build to `dist/` |
 | `npm run preview` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` only |
-| `npm test` | Unit tests for the CSV validator and the password scorer (65 assertions) |
+| `npm test` | Unit tests for the CSV validator, password scorer and lock rules (83 assertions) |
 
 Requires Node 18+ (Node 20 recommended).
 
@@ -124,8 +131,8 @@ no rewrite rules.
 npm test
 ```
 
-Bundles `src/lib/csv.ts` and `src/lib/crypto.ts` with esbuild and runs both suites
-under Node — 65 assertions, no test framework needed.
+Bundles the pure logic modules with esbuild and runs three suites under Node —
+83 assertions, no test framework needed.
 
 - `scripts/test-csv.mjs` (29) — quoted fields, escaped quotes, BOM and blank-line
   handling, delimiter detection, both date formats, and every validation branch of
@@ -136,6 +143,9 @@ under Node — 65 assertions, no test framework needed.
   passwords are never falsely rejected, and that any rejection always carries a
   non-empty reason (an empty one used to render as "Password needs ." with nothing
   after it).
+- `scripts/test-locks.mjs` (18) — freezing and reopening, re-lock idempotency,
+  immutability of the helpers (they are used directly as React state), the write
+  guard, and the range/latest queries.
 
 ---
 
@@ -160,6 +170,7 @@ src/
     attendance.ts              Session lookup, totals, percentages, bunk maths
     analytics.ts               Series, rolling rates, streaks, heatmap, projections
     csv.ts                     CSV parsing + import validation (unit-tested)
+    locks.ts                   Day-freeze rules (unit-tested)
     export.ts                  CSV builders and file download
     date.ts                    ISO / weekday helpers
   state/
@@ -198,6 +209,9 @@ against `data/timetable.ts`. That keeps records valid if a subject is renamed, a
 lets cancelled classes drop out of the denominator entirely.
 
 ```
+A day is either editable or frozen; there is no partial lock. Freezing records
+who froze it and when, so the faculty console can show an audit trail.
+
 percentage  = present ÷ (present + absent)
 canMiss     = ⌊present ÷ target − held⌋
 needed      = ⌈(target × held − present) ÷ (1 − target)⌉
@@ -211,6 +225,7 @@ needed      = ⌈(target × held − present) ÷ (1 − target)⌉
 | `sentinel.session.v1` | Current session (localStorage if remembered, else sessionStorage) |
 | `sentinel.log.v1::<ROLL>` | Attendance log for one student |
 | `sentinel.settings.v1::<ROLL>` | Target, alert prefs, exam date |
+| `sentinel.locks.v1::<ROLL>` | Frozen days — `{ "YYYY-MM-DD": { lockedAt, by } }` |
 | `sentinel.faculty.v1` | Faculty console passcode |
 | `sentinel.theme.v1` | Theme preference |
 

@@ -10,7 +10,8 @@ import {
   type ImportPreview,
 } from "../../lib/csv";
 import { fromISODate, prettyDate, toISODate, weekdayName } from "../../lib/date";
-import { loadFacultyPasscode, loadLog, loadSettings, listAccounts, saveLog } from "../../lib/storage";
+import { loadFacultyPasscode, loadLocks, loadLog, loadSettings, listAccounts, saveLocks, saveLog } from "../../lib/storage";
+import { countLocked, isLocked } from "../../lib/locks";
 import { useAttendance } from "../../state/AttendanceContext";
 import { useAuth } from "../../state/AuthContext";
 import { useToast } from "../../state/ToastContext";
@@ -28,6 +29,7 @@ export default function AdminConsole() {
   const [codeError, setCodeError] = useState<string | null>(null);
   const [dateStr, setDateStr] = useState(toISODate(new Date()));
   const [refreshKey, setRefreshKey] = useState(0);
+  const [overrideLocks, setOverrideLocks] = useState(false);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [importName, setImportName] = useState<string | null>(null);
   const [applied, setApplied] = useState<{ rows: number; students: number } | null>(null);
@@ -41,7 +43,8 @@ export default function AdminConsole() {
         const totals = computeTotals(log);
         const pct = percentage(totals.present, totals.held);
         const target = loadSettings(a.roll).target;
-        return { account: a, totals, pct, target };
+        const locks = loadLocks(a.roll);
+        return { account: a, totals, pct, target, locks, lockedCount: countLocked(locks) };
       })
       .sort((a, b) => (a.pct ?? -1) - (b.pct ?? -1));
   }, [refreshKey]);
@@ -104,14 +107,37 @@ export default function AdminConsole() {
   function bulkMark(status: Status) {
     if (!sessions.length) return;
     let touched = 0;
+    let skipped = 0;
     for (const a of listAccounts()) {
+      const locks = loadLocks(a.roll);
+      if (isLocked(locks, dateStr) && !overrideLocks) {
+        skipped++;
+        continue;
+      }
       const log = { ...loadLog(a.roll) };
       for (const s of sessions) log[logKey(dateStr, s.slot)] = status;
       saveLog(a.roll, log);
       touched++;
     }
     setRefreshKey((k) => k + 1);
-    push(`Marked ${status} for ${touched} account${touched === 1 ? "" : "s"} on ${dateStr}`, "success");
+    push(
+      `Marked ${status} for ${touched} account${touched === 1 ? "" : "s"}` +
+        (skipped ? ` · skipped ${skipped} locked (enable override to force)` : ""),
+      skipped && !touched ? "warn" : "success",
+    );
+  }
+
+  function unlockStudent(roll: string) {
+    const locks = loadLocks(roll);
+    const n = countLocked(locks);
+    if (!n) {
+      push(`${roll} has no locked days`);
+      return;
+    }
+    if (!window.confirm(`Reopen ${n} locked day${n === 1 ? "" : "s"} for ${roll}?`)) return;
+    saveLocks(roll, {});
+    setRefreshKey((k) => k + 1);
+    push(`Reopened ${n} day${n === 1 ? "" : "s"} for ${roll}`, "success");
   }
 
   if (!unlocked) {
@@ -224,8 +250,15 @@ export default function AdminConsole() {
               </Button>
             </div>
           </div>
-          <div className="hint" style={{ marginTop: 12 }}>
-            {prettyDate(fromISODate(dateStr))} — this overwrites any existing marks for those slots on every account.
+          <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, marginTop: 14, cursor: "pointer" }}>
+            <input type="checkbox" checked={overrideLocks} onChange={(e) => setOverrideLocks(e.target.checked)} />
+            <span>
+              Override locks — by default, days a student has already submitted are skipped rather than overwritten.
+            </span>
+          </label>
+          <div className="hint" style={{ marginTop: 10 }}>
+            {prettyDate(fromISODate(dateStr))} — this overwrites existing marks for those slots on every account that
+            is not locked.
           </div>
         </CardBody>
       </Card>
@@ -387,6 +420,7 @@ export default function AdminConsole() {
                   <th className="num">Present</th>
                   <th className="num">Held</th>
                   <th>Status</th>
+                  <th className="num">Locked</th>
                   <th />
                 </tr>
               </thead>
@@ -420,11 +454,31 @@ export default function AdminConsole() {
                           {r.pct === null ? "no data" : r.pct >= r.target ? "OK" : "SHORT"}
                         </Badge>
                       </td>
+                      <td className="num">
+                        {r.lockedCount ? (
+                          <Badge tone="warn">
+                            <Icon name="lock" size={10} /> {r.lockedCount}
+                          </Badge>
+                        ) : (
+                          <span style={{ color: "var(--ink-3)" }}>—</span>
+                        )}
+                      </td>
                       <td>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          icon="download"
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            icon="key"
+                            disabled={!r.lockedCount}
+                            title={r.lockedCount ? "Reopen this student's locked days" : "No locked days"}
+                            onClick={() => unlockStudent(r.account.roll)}
+                          >
+                            Unlock
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            icon="download"
                           onClick={() => {
                             const log = loadLog(r.account.roll);
                             downloadFile(
@@ -434,9 +488,10 @@ export default function AdminConsole() {
                             );
                             push(`Exported ${r.account.roll}`);
                           }}
-                        >
-                          CSV
-                        </Button>
+                          >
+                            CSV
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );

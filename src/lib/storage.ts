@@ -1,5 +1,6 @@
 import { DEFAULT_FACULTY_PASSCODE, DEFAULT_SETTINGS } from "../data/timetable";
 import type { Account, AccountPublic, Session, Settings, Status } from "../types";
+import type { Locks } from "./locks";
 import { randomToken } from "./crypto";
 
 const K = {
@@ -7,6 +8,7 @@ const K = {
   session: "sentinel.session.v1",
   log: (roll: string) => `sentinel.log.v1::${roll.toUpperCase()}`,
   settings: (roll: string) => `sentinel.settings.v1::${roll.toUpperCase()}`,
+  locks: (roll: string) => `sentinel.locks.v1::${roll.toUpperCase()}`,
   faculty: "sentinel.faculty.v1",
   theme: "sentinel.theme.v1",
 };
@@ -101,6 +103,14 @@ export function saveLog(roll: string, log: Record<string, Status>): void {
   write(K.log(roll), log);
 }
 
+/* ------------------------------------------------------------------- locks */
+export function loadLocks(roll: string): Locks {
+  return read<Locks>(K.locks(roll), {});
+}
+export function saveLocks(roll: string, locks: Locks): void {
+  write(K.locks(roll), locks);
+}
+
 /* ---------------------------------------------------------------- settings */
 export function loadSettings(roll: string): Settings {
   return { ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(K.settings(roll), {}) };
@@ -129,4 +139,5 @@ export function saveTheme(theme: "dark" | "light"): void {
 export function eraseStudentData(roll: string): void {
   localStorage.removeItem(K.log(roll));
   localStorage.removeItem(K.settings(roll));
+  localStorage.removeItem(K.locks(roll));
 }

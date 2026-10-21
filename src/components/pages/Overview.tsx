@@ -13,13 +13,14 @@ import { Icon } from "../ui/icons";
 
 export default function Overview() {
   const { account } = useAuth();
-  const { totals, settings, log, setStatus } = useAttendance();
+  const { totals, settings, log, setStatus, locks, isDayLocked } = useAttendance();
   const now = useClock(15_000);
 
   const pct = percentage(totals.present, totals.held);
   const risk = riskOf(pct, settings.target);
   const today = asDayName(now);
   const todayISO = toISODate(now);
+  const todayLocked = isDayLocked(todayISO);
 
   const series = useMemo(() => dailySeries(log, 14, now), [log, now]);
   const spark = useMemo(() => series.map((p) => p.rate ?? 0), [series]);
@@ -128,7 +129,13 @@ export default function Overview() {
         <Card>
           <CardHead
             title="Today's schedule"
-            sub={today ? `${todaysSlots.length} sessions · tap to mark` : "No classes today"}
+            sub={
+              today
+                ? todayLocked
+                  ? `${todaysSlots.length} sessions · submitted and locked`
+                  : `${todaysSlots.length} sessions · tap to mark`
+                : "No classes today"
+            }
             actions={
               <Link to="/attendance" className="btn sm">
                 Open day view
@@ -158,6 +165,11 @@ export default function Overview() {
                     </Badge>
                   )}
                   {!current && !upcoming && <Badge>all done for today</Badge>}
+                  {todayLocked && (
+                    <Badge tone="warn">
+                      <Icon name="lock" size={11} /> locked
+                    </Badge>
+                  )}
                 </div>
 
                 {todaysSlots.map((slot) => {
@@ -183,6 +195,9 @@ export default function Overview() {
                             key={s}
                             data-s={s}
                             className={status === s ? "on" : ""}
+                            disabled={todayLocked}
+                            style={todayLocked ? { cursor: "not-allowed", opacity: 0.75 } : undefined}
+                            title={todayLocked ? "Locked — faculty unlock required" : undefined}
                             onClick={() => setStatus(todayISO, slot.key, s)}
                             aria-label={s === "P" ? "Present" : s === "A" ? "Absent" : "Cancelled"}
                           >
@@ -259,6 +274,17 @@ export default function Overview() {
                       Lunch break
                     </div>
                     <div style={{ fontSize: 14 }}>{LUNCH.time}</div>
+                  </div>
+                  <div>
+                    <div className="mono" style={{ fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--ink-3)" }}>
+                      Days submitted
+                    </div>
+                    <div style={{ fontSize: 14 }}>
+                      {Object.keys(locks).length} locked
+                      {Object.keys(locks).length > 0 && (
+                        <span style={{ color: "var(--ink-3)" }}> · faculty unlock to edit</span>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <div className="mono" style={{ fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--ink-3)" }}>

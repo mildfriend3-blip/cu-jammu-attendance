@@ -68,6 +68,30 @@ create table public.attendance (
 create index attendance_roll_date_idx on public.attendance (roll, class_date desc);
 ```
 
+### Day locks
+
+The "submit & lock" rule is currently enforced in the client, which stops a
+student editing their own record through the UI but not a determined user with
+devtools. To make it a real guarantee, the lock has to be enforced where the
+student cannot reach it:
+
+```sql
+alter table public.attendance add column locked_at timestamptz;
+
+-- students may only touch their own rows, and only while unlocked
+create policy "students write unlocked rows only" on public.attendance
+  for update using (
+    roll = (select raw_user_meta_data->>'roll' from auth.users where id = auth.uid())
+    and locked_at is null
+  );
+
+-- only faculty may clear a lock
+create policy "faculty unlock" on public.attendance
+  for update using (
+    (select raw_user_meta_data->>'role' from auth.users where id = auth.uid()) = 'faculty'
+  );
+```
+
 Row-level security is what makes it safe to ship the anon key in a static bundle:
 
 ```sql

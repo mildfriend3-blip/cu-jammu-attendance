@@ -10,8 +10,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build:test && node scripts/test-csv.mjs && node scripts/test-password.mjs",
-    "build:test": "esbuild src/lib/csv.ts --bundle --format=esm --platform=node --outfile=.tmp/csv.mjs --log-level=error && esbuild src/lib/crypto.ts --bundle --format=esm --platform=node --outfile=.tmp/crypto.mjs --log-level=error"
+    "test": "npm run build:test && node scripts/test-csv.mjs && node scripts/test-password.mjs && node scripts/test-locks.mjs",
+    "build:test": "esbuild src/lib/csv.ts --bundle --format=esm --platform=node --outfile=.tmp/csv.mjs --log-level=error && esbuild src/lib/crypto.ts --bundle --format=esm --platform=node --outfile=.tmp/crypto.mjs --log-level=error && esbuild src/lib/locks.ts --bundle --format=esm --platform=node --outfile=.tmp/locks.mjs --log-level=error"
   },
   "dependencies": {
     "react": "^18.3.1",

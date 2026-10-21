@@ -10,7 +10,17 @@ import {
 import { DEFAULT_SETTINGS } from "../data/timetable";
 import { computeTotals, logKey, sessionsOn } from "../lib/attendance";
 import { downloadFile } from "../lib/export";
-import { eraseStudentData, loadLog, loadSettings, saveLog, saveSettings } from "../lib/storage";
+import { canEditDay, isLocked, lockDay as lockDate, unlockDay as unlockDate, type Locks } from "../lib/locks";
+import {
+  eraseStudentData,
+  loadFacultyPasscode,
+  loadLocks,
+  loadLog,
+  loadSettings,
+  saveLocks,
+  saveLog,
+  saveSettings,
+} from "../lib/storage";
 import type { Settings, SlotKey, Status, Totals } from "../types";
 import { useAuth } from "./AuthContext";
 
@@ -18,12 +28,23 @@ interface AttendanceValue {
   log: Record<string, Status>;
   settings: Settings;
   totals: Totals;
-  setStatus: (isoDate: string, slot: SlotKey, status: Status) => void;
-  markAllPresent: (isoDate: string) => void;
-  clearDay: (isoDate: string) => void;
+  locks: Locks;
+  /** True when the day has been submitted and is frozen. */
+  isDayLocked: (isoDate: string) => boolean;
+  /**
+   * All mutating actions return false when the day is locked, so the UI can
+   * explain why rather than silently doing nothing. The guard lives here, not in
+   * the components, so a locked day cannot be written even if the UI is bypassed.
+   */
+  setStatus: (isoDate: string, slot: SlotKey, status: Status) => boolean;
+  markAllPresent: (isoDate: string) => boolean;
+  clearDay: (isoDate: string) => boolean;
+  lockDay: (isoDate: string) => void;
+  /** Reopens a frozen day. Requires the faculty passcode. */
+  unlockDay: (isoDate: string, passcode: string) => boolean;
   updateSettings: (patch: Partial<Settings>) => void;
   erase: () => void;
-  replaceLog: (log: Record<string, Status>) => void;
+  replaceLog: (log: Record<string, Status>, locks?: Locks) => void;
   exportBackup: () => void;
 }
 
@@ -35,15 +56,18 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
 
   const [log, setLog] = useState<Record<string, Status>>({});
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [locks, setLocks] = useState<Locks>({});
 
   useEffect(() => {
     if (!roll) {
       setLog({});
       setSettings(DEFAULT_SETTINGS);
+      setLocks({});
       return;
     }
     setLog(loadLog(roll));
     setSettings(loadSettings(roll));
+    setLocks(loadLocks(roll));
   }, [roll]);
 
   const commit = useCallback(
@@ -54,8 +78,19 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
     [roll],
   );
 
+  const commitLocks = useCallback(
+    (next: Locks) => {
+      setLocks(next);
+      if (roll) saveLocks(roll, next);
+    },
+    [roll],
+  );
+
+  const isDayLocked = useCallback((isoDate: string) => isLocked(locks, isoDate), [locks]);
+
   const setStatus = useCallback(
-    (isoDate: string, slot: SlotKey, status: Status) => {
+    (isoDate: string, slot: SlotKey, status: Status): boolean => {
+      if (!canEditDay(locks, isoDate)) return false;
       const key = logKey(isoDate, slot);
       setLog((current) => {
         const next = { ...current };
@@ -64,26 +99,47 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
         if (roll) saveLog(roll, next);
         return next;
       });
+      return true;
     },
-    [roll],
+    [roll, locks],
   );
 
   const markAllPresent = useCallback(
-    (isoDate: string) => {
+    (isoDate: string): boolean => {
+      if (!canEditDay(locks, isoDate)) return false;
       const next = { ...log };
       for (const session of sessionsOn(isoDate)) next[logKey(isoDate, session.slot)] = "P";
       commit(next);
+      return true;
     },
-    [log, commit],
+    [log, commit, locks],
   );
 
   const clearDay = useCallback(
-    (isoDate: string) => {
+    (isoDate: string): boolean => {
+      if (!canEditDay(locks, isoDate)) return false;
       const next = { ...log };
       for (const session of sessionsOn(isoDate)) delete next[logKey(isoDate, session.slot)];
       commit(next);
+      return true;
     },
-    [log, commit],
+    [log, commit, locks],
+  );
+
+  const lockDay = useCallback(
+    (isoDate: string) => {
+      commitLocks(lockDate(locks, isoDate, roll ?? "unknown"));
+    },
+    [locks, commitLocks, roll],
+  );
+
+  const unlockDay = useCallback(
+    (isoDate: string, passcode: string): boolean => {
+      if (passcode !== loadFacultyPasscode()) return false;
+      commitLocks(unlockDate(locks, isoDate));
+      return true;
+    },
+    [locks, commitLocks],
   );
 
   const updateSettings = useCallback(
@@ -101,31 +157,48 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
     if (roll) eraseStudentData(roll);
     setLog({});
     setSettings(DEFAULT_SETTINGS);
+    setLocks({});
   }, [roll]);
 
   const replaceLog = useCallback(
-    (next: Record<string, Status>) => commit(next),
-    [commit],
+    (next: Record<string, Status>, nextLocks?: Locks) => {
+      commit(next);
+      commitLocks(nextLocks ?? {});
+    },
+    [commit, commitLocks],
   );
 
   const exportBackup = useCallback(() => {
     if (!roll || !account) return;
-    const payload = { kind: "sentinel-backup", version: 1, roll, name: account.name, settings, log };
+    const payload = {
+      kind: "sentinel-backup",
+      version: 2,
+      roll,
+      name: account.name,
+      settings,
+      log,
+      locks,
+    };
     downloadFile(
       `sentinel-backup-${roll.replace(/[^A-Za-z0-9]+/g, "_")}.json`,
       JSON.stringify(payload, null, 2),
       "application/json",
     );
-  }, [roll, account, settings, log]);
+  }, [roll, account, settings, log, locks]);
 
   const totals = useMemo(() => computeTotals(log), [log]);
 
   const value = useMemo<AttendanceValue>(
     () => ({
-      log, settings, totals,
-      setStatus, markAllPresent, clearDay, updateSettings, erase, replaceLog, exportBackup,
+      log, settings, totals, locks, isDayLocked,
+      setStatus, markAllPresent, clearDay, lockDay, unlockDay,
+      updateSettings, erase, replaceLog, exportBackup,
     }),
-    [log, settings, totals, setStatus, markAllPresent, clearDay, updateSettings, erase, replaceLog, exportBackup],
+    [
+      log, settings, totals, locks, isDayLocked,
+      setStatus, markAllPresent, clearDay, lockDay, unlockDay,
+      updateSettings, erase, replaceLog, exportBackup,
+    ],
   );
 
   return <AttendanceContext.Provider value={value}>{children}</AttendanceContext.Provider>;
