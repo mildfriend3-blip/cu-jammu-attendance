@@ -226,19 +226,10 @@ export default function Overview() {
                 <div style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.6 }}>
                   {adviceFor(totals.present, totals.held, settings.target).text}
                 </div>
-                {pct !== null && (
-                  <div style={{ marginTop: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--ink-3)", marginBottom: 6 }}>
-                      <span className="mono">0%</span>
-                      <span className="mono">{settings.target}% target</span>
-                      <span className="mono">100%</span>
-                    </div>
-                    <ProgressBar
-                      value={pct}
-                      color={risk === "ok" ? "var(--accent)" : risk === "warn" ? "var(--warn)" : "var(--danger)"}
-                    />
-                  </div>
-                )}
+                <div style={{ marginTop: 12, fontSize: 12.5, color: "var(--ink-3)" }}>
+                  {totals.present} present of {totals.held} held
+                  {totals.cancelled > 0 ? ` · ${totals.cancelled} cancelled` : ""}
+                </div>
               </div>
             </CardBody>
           </Card>
@@ -264,19 +255,19 @@ export default function Overview() {
               <CardBody>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div>
-                    <div className="mono" style={{ fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--ink-3)" }}>
+                    <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
                       Term effective
                     </div>
                     <div style={{ fontSize: 14 }}>{META.effectiveFrom}</div>
                   </div>
                   <div>
-                    <div className="mono" style={{ fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--ink-3)" }}>
+                    <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
                       Lunch break
                     </div>
                     <div style={{ fontSize: 14 }}>{LUNCH.time}</div>
                   </div>
                   <div>
-                    <div className="mono" style={{ fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--ink-3)" }}>
+                    <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
                       Days submitted
                     </div>
                     <div style={{ fontSize: 14 }}>
@@ -287,7 +278,7 @@ export default function Overview() {
                     </div>
                   </div>
                   <div>
-                    <div className="mono" style={{ fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--ink-3)" }}>
+                    <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
                       Next exam
                     </div>
                     <div style={{ fontSize: 14 }}>

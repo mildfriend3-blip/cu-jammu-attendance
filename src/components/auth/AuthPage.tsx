@@ -8,6 +8,14 @@ import { Icon, Logo } from "../ui/icons";
 
 type Mode = "login" | "signup";
 
+const STRENGTH_COLOURS = [
+  "var(--danger)",
+  "var(--danger)",
+  "var(--warn)",
+  "var(--accent)",
+  "var(--accent)",
+];
+
 export default function AuthPage() {
   const { accounts, signIn, signUp } = useAuth();
   const { push } = useToast();
@@ -19,16 +27,15 @@ export default function AuthPage() {
   const [confirm, setConfirm] = useState("");
   const [role, setRole] = useState<"student" | "faculty">("student");
   const [remember, setRemember] = useState(true);
-  const [showPw, setShowPw] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ field?: string; message: string } | null>(null);
 
   const strength = useMemo(() => scorePassword(password, roll, name), [password, roll, name]);
 
-  /** Advisory only — never blocks sign-up. */
   const passwordHint = useMemo(() => {
     if (mode !== "signup" || !password || strength.warnings.length === 0) return undefined;
-    return `Heads up: ${strength.warnings.join(", ")}.`;
+    return `This password ${strength.warnings.join(" and ")}. You can still use it.`;
   }, [mode, password, strength]);
 
   function switchMode(next: Mode) {
@@ -38,19 +45,18 @@ export default function AuthPage() {
     setConfirm("");
   }
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  async function submit(event: FormEvent) {
+    event.preventDefault();
     setBusy(true);
     setError(null);
     try {
       if (mode === "login") {
-        const res = await signIn(roll, password, remember);
-        if (!res.ok) setError({ field: res.field, message: res.message ?? "Could not sign in." });
-        else push(`Welcome back, ${roll.toUpperCase()}`, "success");
+        const result = await signIn(roll, password, remember);
+        if (!result.ok) setError({ field: result.field, message: result.message ?? "Could not sign in." });
       } else {
-        const res = await signUp({ roll, name, password, confirm, role });
-        if (!res.ok) setError({ field: res.field, message: res.message ?? "Could not create account." });
-        else push("Account created — you're signed in.", "success");
+        const result = await signUp({ roll, name, password, confirm, role });
+        if (!result.ok) setError({ field: result.field, message: result.message ?? "Could not create account." });
+        else push("Account created", "success");
       }
     } catch (err) {
       setError({ message: err instanceof Error ? err.message : "Something went wrong." });
@@ -59,46 +65,27 @@ export default function AuthPage() {
     }
   }
 
-  const strengthColors = ["var(--danger)", "var(--danger)", "var(--warn)", "var(--accent)", "var(--accent)"];
-
   return (
     <div className="auth">
       <section className="auth-brand">
         <div>
           <div className="mark">
-            <Logo size={34} />
+            <Logo size={32} />
             <div>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>CU Jammu Sentinel</div>
-              <div className="mono" style={{ fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--accent)" }}>
-                Attendance Intelligence
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{META.product}</div>
+              <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
+                {META.programme} · {META.semester}
               </div>
             </div>
           </div>
 
-          <h1>
-            Attendance you can
-            <br />
-            actually trust.
+          <h1 style={{ fontSize: "clamp(24px, 2.6vw, 32px)", margin: "30px 0 12px" }}>
+            Track your attendance, week by week
           </h1>
           <p className="lede">
-            A local-first console for {META.programme} ({META.semester}) at {META.university}. Track every class,
-            watch your percentage in real time, and know exactly how many you can afford to miss.
+            Mark each class, watch your percentage against the department target, and see exactly how many you can
+            still afford to miss. Everything is stored on this device — there is no server.
           </p>
-
-          <div className="term">
-            <div>
-              <span className="k">$</span> sentinel <b>status</b> --term "{META.term.split(" (")[0]}"
-            </div>
-            <div>
-              <span className="k">›</span> class {META.classTag} · room {META.room}
-            </div>
-            <div>
-              <span className="k">›</span> {Object.keys(SUBJECTS).length} subjects · {SLOTS.length} daily slots
-            </div>
-            <div>
-              <span className="k">›</span> storage <b>local</b> · passwords PBKDF2-SHA256
-            </div>
-          </div>
 
           <div className="auth-facts">
             <div className="auth-fact">
@@ -114,12 +101,22 @@ export default function AuthPage() {
               <div className="v tnum">{accounts.length}</div>
             </div>
           </div>
+
+          <dl style={{ marginTop: 30, display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 16px", fontSize: 13 }}>
+            <dt style={{ color: "var(--ink-3)" }}>Department</dt>
+            <dd style={{ margin: 0 }}>{META.department}</dd>
+            <dt style={{ color: "var(--ink-3)" }}>Class</dt>
+            <dd style={{ margin: 0 }}>
+              {META.classTag} · room {META.room}
+            </dd>
+            <dt style={{ color: "var(--ink-3)" }}>Term</dt>
+            <dd style={{ margin: 0 }}>{META.term}</dd>
+          </dl>
         </div>
 
-        <p className="hint" style={{ maxWidth: "52ch" }}>
-          Unofficial student project. Records never leave this device — there is no server. Passwords are salted and
-          hashed with PBKDF2, but a verifier stored in the browser can still be tampered with, so treat this as a
-          personal tracker rather than an authoritative record.
+        <p className="hint" style={{ maxWidth: "54ch" }}>
+          Unofficial student project, not an official record. Passwords are salted and hashed with PBKDF2, but the
+          verifier is kept in this browser, so someone with the device could still tamper with it.
         </p>
       </section>
 
@@ -134,10 +131,10 @@ export default function AuthPage() {
             </button>
           </div>
 
-          <h2>{mode === "login" ? "Sign in to Sentinel" : "Register your roll number"}</h2>
+          <h2>{mode === "login" ? "Sign in" : "Create your account"}</h2>
           <p className="blurb">
             {mode === "login"
-              ? "Enter the roll number and password you registered with."
+              ? "Use the roll number and password you registered with."
               : "One account per roll number and per name on this device."}
           </p>
 
@@ -177,7 +174,7 @@ export default function AuthPage() {
               <div className="pw-wrap">
                 <Input
                   id="password"
-                  type={showPw ? "text" : "password"}
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   autoComplete={mode === "login" ? "current-password" : "new-password"}
                   value={password}
@@ -187,10 +184,10 @@ export default function AuthPage() {
                 <button
                   type="button"
                   className="pw-toggle"
-                  onClick={() => setShowPw((s) => !s)}
-                  aria-label={showPw ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((s) => !s)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  <Icon name={showPw ? "eyeOff" : "eye"} size={16} />
+                  <Icon name={showPassword ? "eyeOff" : "eye"} size={16} />
                 </button>
               </div>
             </Field>
@@ -200,7 +197,7 @@ export default function AuthPage() {
                 <div className="strength">
                   <div className="track">
                     {[0, 1, 2, 3].map((i) => (
-                      <i key={i} style={{ background: i < strength.score ? strengthColors[strength.score] : undefined }} />
+                      <i key={i} style={{ background: i < strength.score ? STRENGTH_COLOURS[strength.score] : undefined }} />
                     ))}
                   </div>
                   <div className="lbl">{password ? strength.label : ""}</div>
@@ -242,13 +239,13 @@ export default function AuthPage() {
             )}
 
             <Button type="submit" variant="solid" size="lg" block disabled={busy}>
-              {busy ? "Working…" : mode === "login" ? "Sign in" : "Create account"}
+              {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
             </Button>
           </form>
 
           {accounts.length > 0 && (
             <div className="accounts">
-              <div className="lbl">Registered on this device</div>
+              <div className="lbl">Already registered on this device</div>
               {accounts.slice(0, 4).map((a) => (
                 <button
                   key={a.roll}
@@ -270,7 +267,10 @@ export default function AuthPage() {
                   </span>
                   <span style={{ minWidth: 0 }}>
                     <span className="nm" style={{ display: "block" }}>{a.name}</span>
-                    <span className="rl">{a.roll}{a.role === "faculty" ? " · faculty" : ""}</span>
+                    <span className="rl">
+                      {a.roll}
+                      {a.role === "faculty" ? " · faculty" : ""}
+                    </span>
                   </span>
                 </button>
               ))}

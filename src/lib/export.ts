@@ -1,5 +1,5 @@
 import { SUBJECTS, TT } from "../data/timetable";
-import { asDayName, toISODate } from "./date";
+import { asDayName } from "./date";
 import { computeTotals, percentage, subjectHeld } from "./attendance";
 import type { SlotKey, Status } from "../types";
 
@@ -83,6 +83,3 @@ export function rosterCSV(
   return toCSV(rows);
 }
 
-export function backupFilename(roll: string): string {
-  return `sentinel-backup-${roll.replace(/[^A-Za-z0-9]+/g, "_")}-${toISODate(new Date())}.json`;
-}

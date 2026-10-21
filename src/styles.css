@@ -1,5 +1,5 @@
 /* ============================================================================
-   CU Jammu Sentinel — design tokens
+   CUJ Attendance — design tokens
    Dark cyber-security console (default) + a light "daylight" variant.
    ========================================================================= */
 :root {
@@ -51,7 +51,7 @@
   /* elevation */
   --sh-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --sh-2: 0 8px 24px -12px rgba(0, 0, 0, 0.75);
-  --sh-3: 0 24px 60px -24px rgba(0, 0, 0, 0.9);
+  --sh-3: 0 18px 44px -20px rgba(0, 0, 0, 0.8);
   --ring: 0 0 0 3px rgba(34, 197, 94, 0.22);
 
   --sidebar-w: 244px;
@@ -107,20 +107,16 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* ambient grid + vignette, purely decorative */
+/* a single soft light source, no repeating texture */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-image:
-    linear-gradient(rgba(34, 197, 94, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34, 197, 94, 0.05) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(120% 90% at 50% 0%, #000 30%, transparent 100%);
+  background: radial-gradient(1100px 520px at 78% -12%, rgba(34, 197, 94, 0.07), transparent 62%);
 }
-html[data-theme="light"] body::before { opacity: 0.5; }
+html[data-theme="light"] body::before { opacity: 0.6; }
 
 h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
 p { margin: 0; }
@@ -177,8 +173,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .field { display: block; }
 .field > .lbl {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em;
-  text-transform: uppercase; color: var(--ink-3); margin-bottom: 7px;
+  font-size: 13px; font-weight: 500; color: var(--ink-2); margin-bottom: 7px;
 }
 .input, .select, .textarea {
   width: 100%; background: var(--bg-elev); color: var(--ink);
@@ -212,8 +207,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .badge {
   display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
-  padding: 3px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 500;
+  padding: 3px 9px; border-radius: 999px;
   border: 1px solid var(--line-2); color: var(--ink-2); background: var(--surface-2);
 }
 .badge.ok { color: var(--accent); border-color: var(--line-accent); background: var(--accent-dim); }
@@ -249,24 +244,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: relative; overflow: hidden;
   display: flex; flex-direction: column; justify-content: space-between;
   padding: 44px 48px; border-right: 1px solid var(--line);
-  background:
-    radial-gradient(700px 380px at 15% 10%, rgba(34, 197, 94, 0.14), transparent 65%),
-    radial-gradient(600px 420px at 90% 90%, rgba(45, 212, 191, 0.1), transparent 60%),
-    var(--bg-elev);
+  background: var(--bg-elev);
 }
 .auth-brand .mark { display: flex; align-items: center; gap: 12px; }
 .auth-brand .mark svg { width: 34px; height: 34px; }
 .auth-brand h1 { font-size: clamp(30px, 3.4vw, 44px); margin: 26px 0 14px; letter-spacing: -0.035em; }
 .auth-brand .lede { color: var(--ink-2); font-size: 15px; max-width: 46ch; }
-.term {
-  font-family: var(--mono); font-size: 12px; line-height: 1.9; color: var(--ink-3);
-  border-left: 2px solid var(--line-accent); padding-left: 14px; margin-top: 30px;
-}
-.term b { color: var(--accent); font-weight: 500; }
-.term .k { color: var(--ink-2); }
 .auth-facts { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-top: 34px; }
 .auth-fact { border: 1px solid var(--line); border-radius: var(--r); padding: 13px 14px; background: var(--surface); }
-.auth-fact .k { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+.auth-fact .k { font-size: 12.5px; color: var(--ink-3); }
 .auth-fact .v { font-size: 19px; font-weight: 600; margin-top: 4px; letter-spacing: -0.02em; }
 
 .auth-panel { display: flex; align-items: center; justify-content: center; padding: 40px 28px; }
@@ -284,7 +270,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .strength { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .strength .track { flex: 1; display: flex; gap: 4px; }
 .strength .track i { height: 4px; flex: 1; border-radius: 99px; background: var(--surface-3); transition: background .2s; }
-.strength .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); min-width: 62px; text-align: right; }
+.strength .lbl { font-size: 12px; font-weight: 500; color: var(--ink-3); min-width: 62px; text-align: right; }
 
 .pw-wrap { position: relative; }
 .pw-wrap .input { padding-right: 44px; }
@@ -295,7 +281,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pw-toggle:hover { color: var(--ink); background: var(--surface-2); }
 
 .accounts { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 16px; }
-.accounts .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+.accounts .lbl { font-size: 12.5px; color: var(--ink-3); margin-bottom: 8px; }
 .account {
   display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
   background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r);
@@ -325,10 +311,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 16px; }
 .brand svg { width: 26px; height: 26px; flex: none; }
 .brand .nm { font-size: 14px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
-.brand .tg { font-family: var(--mono); font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+.brand .tg { font-size: 11.5px; color: var(--ink-3); }
 
 .nav-group { margin-top: 12px; }
-.nav-group > .lbl { font-family: var(--mono); font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); padding: 0 10px 6px; }
+.nav-group > .lbl { font-size: 11.5px; font-weight: 500; color: var(--ink-3); padding: 0 10px 6px; }
 .nav-item {
   display: flex; align-items: center; gap: 10px; padding: 9px 10px;
   border-radius: var(--r-sm); color: var(--ink-2); font-size: 13.5px; font-weight: 500;
@@ -393,18 +379,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
   padding: 15px 17px; position: relative; overflow: hidden; box-shadow: var(--sh-2);
 }
-.stat .k { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10px; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3); }
+.stat .k { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--ink-3); }
 .stat .v { font-size: 28px; font-weight: 600; letter-spacing: -0.035em; margin-top: 8px; line-height: 1; }
 .stat .v small { font-size: 13px; color: var(--ink-3); font-weight: 400; letter-spacing: 0; }
 .stat .d { font-size: 12px; color: var(--ink-3); margin-top: 7px; }
 .stat .spark { position: absolute; right: 0; bottom: 0; opacity: .55; pointer-events: none; }
-.stat.accent::after { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: linear-gradient(90deg, var(--accent), transparent); }
+.stat.accent { border-color: var(--line-accent); }
 
 .ring { position: relative; display: grid; place-items: center; flex: none; }
 .ring svg { transform: rotate(-90deg); }
 .ring .val { position: absolute; text-align: center; }
 .ring .val b { display: block; font-size: 21px; font-weight: 600; letter-spacing: -0.03em; }
-.ring .val span { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+.ring .val span { font-size: 11px; color: var(--ink-3); }
 
 /* ============================================================================
    Timetable
@@ -495,7 +481,7 @@ td.cellp.now { background: var(--accent-dim); box-shadow: inset 0 0 0 1.5px var(
 .scard .cn { font-size: 14.5px; font-weight: 600; line-height: 1.25; margin-top: 3px; }
 .scard .cf { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
 .scard .pv { font-family: var(--mono); font-size: 22px; font-weight: 500; letter-spacing: -0.03em; text-align: right; line-height: 1; }
-.scard .pv small { display: block; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-top: 3px; }
+.scard .pv small { display: block; font-size: 11px; color: var(--ink-3); margin-top: 3px; }
 .scard .counts { display: flex; gap: 16px; font-size: 12px; color: var(--ink-3); margin-top: 11px; }
 .scard .counts b { font-family: var(--mono); color: var(--ink); font-weight: 500; }
 .verdict { margin-top: 11px; font-size: 12px; line-height: 1.45; border-radius: var(--r-sm); padding: 8px 10px; border: 1px solid transparent; }
@@ -516,8 +502,10 @@ td.cellp.now { background: var(--accent-dim); box-shadow: inset 0 0 0 1.5px var(
 .chart { width: 100%; display: block; overflow: visible; }
 .chart .gridline { stroke: var(--line); stroke-width: 1; }
 .chart .axis { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); }
-.chart .bar { fill: var(--accent); opacity: .85; }
-.chart .bar.bad { fill: var(--danger); opacity: .8; }
+/* NB: deliberately not ".bar" — that class is the ProgressBar track and its
+   height rule would override the SVG rect's own height. */
+.chart .cbar { fill: var(--accent); opacity: .85; }
+.chart .cbar.bad { fill: var(--danger); opacity: .8; }
 .chart .area { fill: url(#gradA); }
 .chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .chart .pt { fill: var(--bg); stroke: var(--accent); stroke-width: 2; }
@@ -528,8 +516,8 @@ td.cellp.now { background: var(--accent-dim); box-shadow: inset 0 0 0 1.5px var(
 .tablewrap { overflow-x: auto; }
 table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.data th {
-  text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
-  text-transform: uppercase; color: var(--ink-3); font-weight: 500;
+  text-align: left; font-size: 12.5px;
+  color: var(--ink-3); font-weight: 500;
   padding: 10px 14px; border-bottom: 1px solid var(--line); position: sticky; top: 0;
   background: var(--surface-2); backdrop-filter: blur(8px); white-space: nowrap;
 }
@@ -558,7 +546,7 @@ table.data .num { font-family: var(--mono); font-variant-numeric: tabular-nums; 
 .modal .mb { padding: 18px 20px; }
 .modal .mf { padding: 14px 20px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; background: var(--surface-2); }
 .modal dl { display: grid; grid-template-columns: 96px 1fr; gap: 9px 14px; margin: 0; font-size: 13px; }
-.modal dt { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); padding-top: 3px; }
+.modal dt { font-size: 12.5px; color: var(--ink-3); padding-top: 3px; }
 .modal dd { margin: 0; }
 
 .palette { width: 100%; max-width: 560px; background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-lg); box-shadow: var(--sh-3); overflow: hidden; animation: rise .18s cubic-bezier(.2,.7,.3,1); }
@@ -569,7 +557,7 @@ table.data .num { font-family: var(--mono); font-variant-numeric: tabular-nums; 
 .palette .pitem:hover, .palette .pitem.sel { background: var(--surface-2); }
 .palette .pitem .ic { width: 16px; height: 16px; color: var(--ink-3); flex: none; }
 .palette .pitem .tt { flex: 1; font-size: 13.5px; }
-.palette .pitem .gp { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+.palette .pitem .gp { font-size: 11.5px; color: var(--ink-3); }
 
 .toasts { position: fixed; bottom: 20px; right: 20px; z-index: 90; display: flex; flex-direction: column; gap: 9px; align-items: flex-end; }
 .toast {

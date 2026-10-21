@@ -11,7 +11,7 @@ import {
 } from "../../lib/csv";
 import { fromISODate, prettyDate, toISODate, weekdayName } from "../../lib/date";
 import { loadFacultyPasscode, loadLocks, loadLog, loadSettings, listAccounts, saveLocks, saveLog } from "../../lib/storage";
-import { countLocked, isLocked } from "../../lib/locks";
+import { countLocked, isLocked, lockedDates } from "../../lib/locks";
 import { useAttendance } from "../../state/AttendanceContext";
 import { useAuth } from "../../state/AuthContext";
 import { useToast } from "../../state/ToastContext";
@@ -193,7 +193,7 @@ export default function AdminConsole() {
             icon="download"
             onClick={() => {
               downloadFile(
-                `sentinel-roster-${toISODate(new Date())}.csv`,
+                `cujatt-roster-${toISODate(new Date())}.csv`,
                 rosterCSV(
                   roster.map((r) => ({
                     roll: r.account.roll,
@@ -273,7 +273,7 @@ export default function AdminConsole() {
                 size="sm"
                 icon="download"
                 onClick={() => {
-                  downloadFile("sentinel-import-template.csv", templateCsv(), "text/csv;charset=utf-8");
+                  downloadFile("cujatt-import-template.csv", templateCsv(), "text/csv;charset=utf-8");
                   push("Template downloaded");
                 }}
               >
@@ -380,7 +380,7 @@ export default function AdminConsole() {
                 <Button
                   icon="download"
                   onClick={() =>
-                    downloadFile("sentinel-import-report.csv", importReportCsv(preview.rows, preview.issues), "text/csv;charset=utf-8")
+                    downloadFile("cujatt-import-report.csv", importReportCsv(preview.rows, preview.issues), "text/csv;charset=utf-8")
                   }
                 >
                   Download report
@@ -456,9 +456,11 @@ export default function AdminConsole() {
                       </td>
                       <td className="num">
                         {r.lockedCount ? (
-                          <Badge tone="warn">
-                            <Icon name="lock" size={10} /> {r.lockedCount}
-                          </Badge>
+                          <span title={lockedDates(r.locks).join(", ")}>
+                            <Badge tone="warn">
+                              <Icon name="lock" size={10} /> {r.lockedCount}
+                            </Badge>
+                          </span>
                         ) : (
                           <span style={{ color: "var(--ink-3)" }}>—</span>
                         )}
@@ -482,7 +484,7 @@ export default function AdminConsole() {
                           onClick={() => {
                             const log = loadLog(r.account.roll);
                             downloadFile(
-                              `sentinel-${r.account.roll}.csv`,
+                              `cujatt-${r.account.roll}.csv`,
                               subjectSummaryCSV(r.account.roll, r.account.name, log, r.target),
                               "text/csv;charset=utf-8",
                             );

@@ -63,6 +63,7 @@ export function Bars({
   max?: number;
 }) {
   const top = Math.max(max ?? 100, target ?? 0, ...data.map((d) => d.value ?? 0));
+  const labelStep = Math.max(1, Math.ceil(data.length / 7));
   const bw = 100 / Math.max(1, data.length);
   const plot = height; // full SVG box; bars sit on the baseline
 
@@ -96,7 +97,7 @@ export function Bars({
           return (
             <rect
               key={`${d.label}-${i}`}
-              className={`bar ${d.bad ? "bad" : ""}`.trim()}
+              className={`cbar ${d.bad ? "bad" : ""}`.trim()}
               x={i * bw + bw * 0.18}
               y={plot - h - 1}
               width={bw * 0.64}
@@ -112,6 +113,7 @@ export function Bars({
           <span
             key={`l-${d.label}-${i}`}
             className="mono"
+            title={d.label}
             style={{
               flex: 1,
               minWidth: 0,
@@ -123,7 +125,8 @@ export function Bars({
               whiteSpace: "nowrap",
             }}
           >
-            {d.label}
+            {/* show roughly seven labels at most, so they never overlap */}
+            {i % labelStep === 0 ? d.label : ""}
           </span>
         ))}
       </div>

@@ -1,13 +1,12 @@
 import { useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { META, SLOTS, SUBJECTS, TT } from "../../data/timetable";
+import { META } from "../../data/timetable";
 import { useHotkeys } from "../../hooks/useHotkeys";
+import { useAttendanceAlerts } from "../../hooks/useAttendanceAlerts";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useTheme } from "../../hooks/useTheme";
 import { useAttendance } from "../../state/AttendanceContext";
 import { useAuth } from "../../state/AuthContext";
-import { percentage, subjectShort } from "../../lib/attendance";
-import { asDayName, minutesOf } from "../../lib/date";
 import { Avatar, Toaster } from "../ui";
 import { Icon, Logo } from "../ui/icons";
 import { CommandPalette } from "./CommandPalette";
@@ -16,19 +15,18 @@ interface NavEntry {
   to: string;
   label: string;
   icon: string;
-  group: string;
   end?: boolean;
 }
 
 const NAV: NavEntry[] = [
-  { to: "/", label: "Overview", icon: "dashboard", group: "Operations", end: true },
-  { to: "/timetable", label: "Timetable", icon: "calendar", group: "Operations" },
-  { to: "/attendance", label: "Mark attendance", icon: "checkCircle", group: "Operations" },
-  { to: "/subjects", label: "Subjects", icon: "book", group: "Analysis" },
-  { to: "/insights", label: "Insights", icon: "trend", group: "Analysis" },
-  { to: "/history", label: "History", icon: "clock", group: "Analysis" },
-  { to: "/admin", label: "Faculty console", icon: "users", group: "Administration" },
-  { to: "/settings", label: "Settings", icon: "settings", group: "Administration" },
+  { to: "/", label: "Overview", icon: "dashboard", end: true },
+  { to: "/timetable", label: "Timetable", icon: "calendar" },
+  { to: "/attendance", label: "Mark attendance", icon: "checkCircle" },
+  { to: "/subjects", label: "Subjects", icon: "book" },
+  { to: "/insights", label: "Insights", icon: "trend" },
+  { to: "/history", label: "History", icon: "clock" },
+  { to: "/admin", label: "Faculty console", icon: "users" },
+  { to: "/settings", label: "Settings", icon: "settings" },
 ];
 
 const TITLES: Record<string, string> = {
@@ -63,54 +61,11 @@ export default function AppShell() {
   );
   useHotkeys(hotkeys);
 
-  // Low-attendance alert (once per session) + upcoming-class reminder.
-  const pct = percentage(totals.present, totals.held);
-  useMemo(() => {
-    if (!settings.notifyLowAttendance || pct === null || pct >= settings.target) return;
-    const short = Object.values(SUBJECTS)
-      .filter((s) => {
-        const t = totals.per[s.code];
-        const held = t ? t.present + t.absent : 0;
-        return held > 0 && (t.present * 100) / held < settings.target;
-      })
-      .map((s) => s.short);
-    notify(
-      "low-attendance",
-      "Attendance below target",
-      short.length
-        ? `${pct.toFixed(1)}% overall. Short in: ${short.join(", ")}.`
-        : `Overall attendance is ${pct.toFixed(1)}%, below your ${settings.target}% target.`,
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pct]);
-
-  useMemo(() => {
-    if (!settings.notifyClassReminder) return;
-    const now = new Date();
-    const day = asDayName(now);
-    if (!day) return;
-    const mins = now.getHours() * 60 + now.getMinutes();
-    for (const slot of SLOTS) {
-      const code = TT[day][slot.key];
-      if (!code) continue;
-      const [start] = slot.time.split("–");
-      const delta = minutesOf(start) - mins;
-      if (delta > 0 && delta <= settings.reminderLeadMinutes) {
-        notify(
-          `class-${day}-${slot.key}`,
-          "Class starting soon",
-          `${subjectShort(code)} at ${slot.time} (${META.room}).`,
-        );
-        break;
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.notifyClassReminder, settings.reminderLeadMinutes]);
+  useAttendanceAlerts(totals, settings, notify);
 
   if (!account) return null;
 
-  const groups = Array.from(new Set(NAV.map((n) => n.group)));
-  const title = TITLES[location.pathname] ?? "Sentinel";
+  const title = TITLES[location.pathname] ?? META.product;
 
   return (
     <div className="shell">
@@ -118,28 +73,25 @@ export default function AppShell() {
         <div className="brand">
           <Logo size={26} />
           <div>
-            <div className="nm">CU Jammu Sentinel</div>
-            <div className="tg">I-CCS · {META.semester}</div>
+            <div className="nm">{META.product}</div>
+            <div className="tg">{META.classTag} · {META.semester}</div>
           </div>
         </div>
 
-        {groups.map((group) => (
-          <div className="nav-group" key={group}>
-            <div className="lbl">{group}</div>
-            {NAV.filter((n) => n.group === group).map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
-                onClick={() => setDrawerOpen(false)}
-              >
-                <Icon name={item.icon} size={16} />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </div>
-        ))}
+        <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {NAV.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+              onClick={() => setDrawerOpen(false)}
+            >
+              <Icon name={item.icon} size={16} />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
 
         <div className="sidebar-foot">
           <div className="whoami">
@@ -164,7 +116,7 @@ export default function AppShell() {
             <Icon name="menu" />
           </button>
           <div className="crumb">
-            Sentinel / <b>{title}</b>
+            {META.product} / <b>{title}</b>
           </div>
           <div className="spacer" />
           <button className="searchbtn" onClick={() => setPaletteOpen(true)}>

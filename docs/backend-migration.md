@@ -1,6 +1,6 @@
 # Moving from local storage to a real backend
 
-Sentinel v2 keeps every account and attendance record in the browser's
+This app keeps every account and attendance record in the browser's
 `localStorage`. That was a deliberate choice — it means no server, no hosting
 cost and no student data leaving the device — but it has two consequences worth
 understanding before you decide whether to change it.

@@ -332,8 +332,3 @@ export function Toaster() {
     </div>
   );
 }
-
-/* ---------------------------------------------------------------- Skeletons */
-export function Skeleton({ height = 16, width = "100%", radius = 7 }: { height?: number; width?: number | string; radius?: number }) {
-  return <div className="skel" style={{ height, width, borderRadius: radius }} />;
-}

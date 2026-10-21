@@ -9,11 +9,9 @@ import {
 } from "react";
 import { hashPassword, scorePassword, verifyPassword } from "../lib/crypto";
 import {
-  accountCount,
   clearSession,
   findAccount,
   insertAccount,
-  listAccounts,
   nameKey,
   nameTaken,
   normaliseRoll,
@@ -192,6 +190,3 @@ export function useAuth(): AuthValue {
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
   return ctx;
 }
-
-export const registeredCount = accountCount;
-export const allAccounts = listAccounts;

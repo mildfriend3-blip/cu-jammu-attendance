@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { META } from "../../data/timetable";
+import { useEffect, useRef, useState } from "react";
+import { DEFAULT_FACULTY_PASSCODE, META } from "../../data/timetable";
 import { percentage } from "../../lib/attendance";
 import { attendanceLogCSV, downloadFile, subjectSummaryCSV } from "../../lib/export";
 import { loadFacultyPasscode, saveFacultyPasscode } from "../../lib/storage";
@@ -23,6 +23,10 @@ export default function Settings() {
   const [targetDraft, setTargetDraft] = useState(String(settings.target));
   const [examDraft, setExamDraft] = useState(settings.examDate ?? "");
   const [passcode, setPasscode] = useState("");
+  const [isDefaultPasscode, setIsDefaultPasscode] = useState(() => loadFacultyPasscode() === DEFAULT_FACULTY_PASSCODE);
+
+  // keep the draft in step when the target changes elsewhere (e.g. a backup import)
+  useEffect(() => setTargetDraft(String(settings.target)), [settings.target]);
   const [confirmText, setConfirmText] = useState("");
 
   if (!account) return null;
@@ -54,7 +58,7 @@ export default function Settings() {
         if (parsed.settings) updateSettings(parsed.settings);
         push(`Imported ${Object.keys(parsed.log).length} records`, "success");
       } catch {
-        push("That file is not a Sentinel backup", "error");
+        push("That file is not a valid backup", "error");
       }
     };
     reader.readAsText(file);
@@ -147,8 +151,8 @@ export default function Settings() {
                 label="Theme"
                 onChange={setTheme}
                 options={[
-                  { value: "dark", label: "Sentinel (dark)" },
-                  { value: "light", label: "Daylight (light)" },
+                  { value: "dark", label: "Dark" },
+                  { value: "light", label: "Light" },
                 ]}
               />
             </Field>
@@ -232,7 +236,7 @@ export default function Settings() {
             <Button
               icon="download"
               onClick={() => {
-                downloadFile(`sentinel-log-${account.roll}.csv`, attendanceLogCSV(account.roll, account.name, log), "text/csv;charset=utf-8");
+                downloadFile(`cujatt-log-${account.roll}.csv`, attendanceLogCSV(account.roll, account.name, log), "text/csv;charset=utf-8");
                 push("Log exported", "success");
               }}
             >
@@ -242,7 +246,7 @@ export default function Settings() {
               icon="download"
               onClick={() => {
                 downloadFile(
-                  `sentinel-summary-${account.roll}.csv`,
+                  `cujatt-summary-${account.roll}.csv`,
                   subjectSummaryCSV(account.roll, account.name, log, settings.target),
                   "text/csv;charset=utf-8",
                 );
@@ -278,6 +282,7 @@ export default function Settings() {
                     return;
                   }
                   saveFacultyPasscode(passcode.trim());
+                  setIsDefaultPasscode(passcode.trim() === DEFAULT_FACULTY_PASSCODE);
                   setPasscode("");
                   push("Faculty passcode updated", "success");
                 }}
@@ -287,7 +292,14 @@ export default function Settings() {
             </div>
           </Field>
           <div className="hint" style={{ marginTop: 8 }}>
-            Active passcode: <span className="mono">{loadFacultyPasscode().replace(/./g, "•")}</span>
+            {isDefaultPasscode ? (
+              <>
+                Still using the default passcode <span className="mono">sentinel</span> — change it before sharing this
+                device.
+              </>
+            ) : (
+              <>A custom passcode is set for this browser.</>
+            )}
           </div>
         </CardBody>
       </Card>
@@ -327,7 +339,7 @@ export default function Settings() {
         <CardBody>
           <div style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.8 }}>
             <div>
-              <b style={{ color: "var(--ink)" }}>CU Jammu Sentinel</b> v{META.version} — an unofficial attendance
+              <b style={{ color: "var(--ink)" }}>{META.product}</b> v{META.version} — an unofficial attendance
               console for {META.programme} ({META.semester}), {META.department}, {META.university}.
             </div>
             <div style={{ marginTop: 8 }}>
@@ -337,7 +349,7 @@ export default function Settings() {
             <div style={{ marginTop: 8 }}>
               Passwords are salted and hashed with PBKDF2-HMAC-SHA256 (210,000 iterations). That is real key
               derivation, but because the verifier is stored locally a determined user with this device could still
-              tamper with it. Treat Sentinel as a personal tracker, not an authoritative attendance record.
+              tamper with it. Treat this as a personal tracker, not an authoritative attendance record.
             </div>
           </div>
         </CardBody>

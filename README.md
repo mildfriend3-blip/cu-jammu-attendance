@@ -1,9 +1,8 @@
-# CU Jammu Sentinel
+# CUJ Attendance
 
-**Attendance intelligence and timetable console** for the B.Tech Cyber Security,
-Semester I class (`I-CCS`) — Department of CSE & CSIT, Cluster University of Jammu.
-Built on the department timetable for the **2026–27 odd semester** (effective
-7 September 2026).
+Attendance and timetable tracker for the B.Tech Cyber Security, Semester I class
+(`I-CCS`) — Department of CSE & CSIT, Cluster University of Jammu. Built on the
+department timetable for the **2026–27 odd semester** (effective 7 September 2026).
 
 Local-first: there is no backend, no analytics and no tracking. Every record lives
 in the browser's `localStorage`, so the whole product is a static site you can host
@@ -97,9 +96,12 @@ npm run dev      # http://localhost:5173
 | `npm run build` | Type-check, then build to `dist/` |
 | `npm run preview` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` only |
+| `npm run lint` | ESLint (flat config, typescript-eslint + react-hooks) |
+| `npm run verify` | lint → typecheck → test → build, in one go |
 | `npm test` | Unit tests for the CSV validator, password scorer and lock rules (83 assertions) |
 
-Requires Node 18+ (Node 20 recommended).
+Requires Node 18+ (see `.nvmrc`; Node 20 recommended). Formatting conventions
+live in `.editorconfig`.
 
 > Web Crypto is required for password hashing, so run over `https://` or
 > `localhost`. The deployed site is HTTPS, so this is only a dev concern.
@@ -217,6 +219,12 @@ canMiss     = ⌊present ÷ target − held⌋
 needed      = ⌈(target × held − present) ÷ (1 − target)⌉
 ```
 
+### Storage namespace
+
+Keys are prefixed `sentinel.` — an internal namespace, not the product name. It is
+left alone deliberately: renaming it would orphan any records already saved in a
+student's browser, for no user-visible benefit.
+
 ### localStorage keys
 
 | Key | Contents |
@@ -226,6 +234,7 @@ needed      = ⌈(target × held − present) ÷ (1 − target)⌉
 | `sentinel.log.v1::<ROLL>` | Attendance log for one student |
 | `sentinel.settings.v1::<ROLL>` | Target, alert prefs, exam date |
 | `sentinel.locks.v1::<ROLL>` | Frozen days — `{ "YYYY-MM-DD": { lockedAt, by } }` |
+| `sentinel.accounts.v1` | Accounts; `sentinel.faculty.v1` holds the console passcode |
 | `sentinel.faculty.v1` | Faculty console passcode |
 | `sentinel.theme.v1` | Theme preference |
 

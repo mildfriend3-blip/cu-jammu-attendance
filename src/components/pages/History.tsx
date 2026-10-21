@@ -66,7 +66,7 @@ export default function History() {
             onClick={() => {
               if (!account) return;
               downloadFile(
-                `sentinel-log-${account.roll}.csv`,
+                `cujatt-log-${account.roll}.csv`,
                 attendanceLogCSV(account.roll, account.name, log),
                 "text/csv;charset=utf-8",
               );
@@ -80,7 +80,7 @@ export default function History() {
             onClick={() => {
               if (!account) return;
               downloadFile(
-                `sentinel-summary-${account.roll}.csv`,
+                `cujatt-summary-${account.roll}.csv`,
                 subjectSummaryCSV(account.roll, account.name, log, settings.target),
                 "text/csv;charset=utf-8",
               );

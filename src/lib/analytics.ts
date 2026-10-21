@@ -1,5 +1,5 @@
-import { DAYS, SLOTS, TT } from "../data/timetable";
-import { addDays, asDayName, fromISODate, toISODate } from "./date";
+import { DAYS, TT } from "../data/timetable";
+import { addDays, asDayName, toISODate } from "./date";
 import { logKey, sessionsOn } from "./attendance";
 import type { DaySeriesPoint, HeatCell, SlotKey, Status } from "../types";
 
@@ -134,15 +134,3 @@ export function classesNeededToTarget(present: number, held: number, target: num
   return Math.ceil((t * held - present) / (1 - t));
 }
 
-export function slotTime(slot: SlotKey): string {
-  return SLOTS.find((s) => s.key === slot)?.time ?? "";
-}
-
-export function parseLogKey(key: string): { iso: string; slot: SlotKey } {
-  const [iso, slot] = key.split("|");
-  return { iso, slot: slot as SlotKey };
-}
-
-export function dateFromISO(iso: string): Date {
-  return fromISODate(iso);
-}

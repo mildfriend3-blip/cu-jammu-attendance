@@ -1,7 +1,4 @@
-import {
-  isLocked, lockDay, unlockDay, lockedDates, countLocked,
-  lockedInRange, latestLock, canEditDay,
-} from "../.tmp/locks.mjs";
+import { isLocked, lockDay, unlockDay, lockedDates, countLocked, canEditDay } from "../.tmp/locks.mjs";
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = "") => {
@@ -53,10 +50,6 @@ console.log("\nqueries");
   l = lockDay(l, "2026-10-02", "a", 200);
   ok("count", countLocked(l) === 3, String(countLocked(l)));
   ok("dates sorted", JSON.stringify(lockedDates(l)) === '["2026-10-01","2026-10-02","2026-10-03"]', JSON.stringify(lockedDates(l)));
-  ok("range filter", JSON.stringify(lockedInRange(l, "2026-10-02", "2026-10-03")) === '["2026-10-02","2026-10-03"]');
-  const latest = latestLock(l);
-  ok("latest by timestamp, not key order", latest.isoDate === "2026-10-03" && latest.lock.lockedAt === 300, JSON.stringify(latest));
-  ok("latest is null when empty", latestLock({}) === null);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

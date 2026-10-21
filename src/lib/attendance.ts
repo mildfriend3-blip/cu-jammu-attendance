@@ -69,10 +69,6 @@ export function riskOf(pct: number | null, target: number): "ok" | "warn" | "bad
   return "bad";
 }
 
-export function subjectColor(code: string): string {
-  return `var(${SUBJECTS[code]?.hue ?? "--s7"})`;
-}
-
 export function subjectName(code: string): string {
   return SUBJECTS[code]?.name ?? code;
 }

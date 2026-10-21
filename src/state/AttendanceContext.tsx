@@ -171,7 +171,7 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
   const exportBackup = useCallback(() => {
     if (!roll || !account) return;
     const payload = {
-      kind: "sentinel-backup",
+      kind: "cujatt-backup",
       version: 2,
       roll,
       name: account.name,
@@ -180,7 +180,7 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
       locks,
     };
     downloadFile(
-      `sentinel-backup-${roll.replace(/[^A-Za-z0-9]+/g, "_")}.json`,
+      `cujatt-backup-${roll.replace(/[^A-Za-z0-9]+/g, "_")}.json`,
       JSON.stringify(payload, null, 2),
       "application/json",
     );

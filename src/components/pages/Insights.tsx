@@ -40,7 +40,7 @@ export default function Insights() {
     const tally = totals.per[s.code];
     const held = subjectHeld(tally);
     const p = percentage(tally?.present ?? 0, held);
-    return { label: s.short.slice(0, 7), value: p, bad: p !== null && p < settings.target };
+    return { label: s.short.length > 6 ? `${s.short.slice(0, 5)}…` : s.short, value: p, bad: p !== null && p < settings.target };
   });
 
   if (totals.held === 0) {

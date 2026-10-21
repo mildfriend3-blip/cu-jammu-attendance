@@ -1,7 +1,7 @@
 {
-  "name": "CU Jammu Sentinel — Attendance Console",
-  "short_name": "Sentinel",
-  "description": "Attendance intelligence and timetable console for B.Tech Cyber Security (Semester I), Cluster University of Jammu.",
+  "name": "CUJ Attendance",
+  "short_name": "CUJ Attendance",
+  "description": "Unofficial attendance and timetable tracker for B.Tech Cyber Security (Semester I), Cluster University of Jammu.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

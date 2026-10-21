@@ -16,9 +16,6 @@ export function asDayName(d: Date): DayName | null {
   const name = weekdayName(d);
   return name === "Saturday" || name === "Sunday" ? null : (name as DayName);
 }
-export function isWeekend(d: Date): boolean {
-  return asDayName(d) === null;
-}
 export function prettyDate(d: Date): string {
   return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
@@ -28,13 +25,6 @@ export function shortDate(d: Date): string {
 export function addDays(d: Date, delta: number): Date {
   const n = new Date(d);
   n.setDate(n.getDate() + delta);
-  return n;
-}
-export function startOfWeek(d: Date): Date {
-  const n = new Date(d);
-  const shift = (n.getDay() + 6) % 7; // Monday-based
-  n.setDate(n.getDate() - shift);
-  n.setHours(0, 0, 0, 0);
   return n;
 }
 export function isSameDay(a: Date, b: Date): boolean {

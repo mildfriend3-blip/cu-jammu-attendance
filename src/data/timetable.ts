@@ -6,7 +6,7 @@
 import type { DayName, SlotKey, SlotMeta, Subject } from "../types";
 
 export const META = {
-  product: "Sentinel",
+  product: "CUJ Attendance",
   university: "Cluster University of Jammu",
   department: "Department of CSE & CSIT",
   programme: "B.Tech Cyber Security",

@@ -43,17 +43,6 @@ export function countLocked(locks: Locks): number {
   return Object.keys(locks).length;
 }
 
-export function lockedInRange(locks: Locks, fromISO: string, toISO: string): string[] {
-  return lockedDates(locks).filter((d) => d >= fromISO && d <= toISO);
-}
-
-/** Most recent lock, for display. */
-export function latestLock(locks: Locks): { isoDate: string; lock: DayLock } | null {
-  const entries = Object.entries(locks);
-  if (!entries.length) return null;
-  const [isoDate, lock] = entries.reduce((best, cur) => (cur[1].lockedAt > best[1].lockedAt ? cur : best));
-  return { isoDate, lock };
-}
 
 /**
  * Whether a write to `isoDate` should be allowed.

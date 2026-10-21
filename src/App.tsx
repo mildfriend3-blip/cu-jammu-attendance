@@ -26,7 +26,7 @@ function BootSplash() {
     >
       <Logo size={40} />
       <div className="mono" style={{ fontSize: 11.5, letterSpacing: ".2em", textTransform: "uppercase", color: "var(--ink-3)" }}>
-        initialising sentinel…
+        loading…
       </div>
     </div>
   );
