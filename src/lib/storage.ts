@@ -1,49 +1,132 @@
-import type { StudentRecord } from "../types";
+import { DEFAULT_FACULTY_PASSCODE, DEFAULT_SETTINGS } from "../data/timetable";
+import type { Account, AccountPublic, Session, Settings, Status } from "../types";
+import { randomToken } from "./crypto";
 
-const PREFIX = "cuj_att::";
+const K = {
+  accounts: "sentinel.accounts.v1",
+  session: "sentinel.session.v1",
+  log: (roll: string) => `sentinel.log.v1::${roll.toUpperCase()}`,
+  settings: (roll: string) => `sentinel.settings.v1::${roll.toUpperCase()}`,
+  faculty: "sentinel.faculty.v1",
+  theme: "sentinel.theme.v1",
+};
 
-const keyFor = (roll: string) => PREFIX + roll.trim().toUpperCase();
+export const normaliseRoll = (roll: string) => roll.trim().toUpperCase().replace(/\s+/g, "");
+export const nameKey = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
 
-export function normaliseRoll(roll: string): string {
-  return roll.trim().toUpperCase();
+function read<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function write(key: string, value: unknown): void {
+  localStorage.setItem(key, JSON.stringify(value));
 }
 
-export function loadRecord(roll: string): StudentRecord | null {
+/* ---------------------------------------------------------------- accounts */
+export function listAccounts(): Account[] {
+  return read<Account[]>(K.accounts, []);
+}
+export function publicAccounts(): AccountPublic[] {
+  return listAccounts()
+    .map(({ roll, name, role, createdAt, lastSeenAt }) => ({ roll, name, role, createdAt, lastSeenAt }))
+    .sort((a, b) => b.lastSeenAt - a.lastSeenAt);
+}
+export function findAccount(roll: string): Account | undefined {
+  const key = normaliseRoll(roll);
+  return listAccounts().find((a) => a.roll === key);
+}
+export function rollTaken(roll: string): boolean {
+  return Boolean(findAccount(roll));
+}
+export function nameTaken(name: string, exceptRoll?: string): boolean {
+  const key = nameKey(name);
+  return listAccounts().some((a) => a.nameKey === key && a.roll !== exceptRoll);
+}
+export function insertAccount(account: Account): void {
+  write(K.accounts, [...listAccounts(), account]);
+}
+export function updateAccount(roll: string, patch: Partial<Account>): Account | undefined {
+  const key = normaliseRoll(roll);
+  const all = listAccounts();
+  const idx = all.findIndex((a) => a.roll === key);
+  if (idx === -1) return undefined;
+  all[idx] = { ...all[idx], ...patch };
+  write(K.accounts, all);
+  return all[idx];
+}
+export function accountCount(): number {
+  return listAccounts().length;
+}
+
+/* ----------------------------------------------------------------- session */
+export function startSession(roll: string, remember: boolean): Session {
+  const session: Session = {
+    roll: normaliseRoll(roll),
+    token: randomToken(),
+    expiresAt: Date.now() + (remember ? 30 : 1) * 86_400_000,
+  };
+  const store = remember ? localStorage : sessionStorage;
+  store.setItem(K.session, JSON.stringify(session));
+  return session;
+}
+export function readSession(): Session | null {
+  const raw = localStorage.getItem(K.session) ?? sessionStorage.getItem(K.session);
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(keyFor(roll));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as StudentRecord;
-    if (!parsed || typeof parsed.roll !== "string" || typeof parsed.log !== "object") {
+    const session = JSON.parse(raw) as Session;
+    if (!session?.roll || session.expiresAt < Date.now()) {
+      clearSession();
       return null;
     }
-    if (typeof parsed.target !== "number") parsed.target = 75;
-    if (typeof parsed.name !== "string") parsed.name = "Unnamed";
-    return parsed;
+    return session;
   } catch {
+    clearSession();
     return null;
   }
 }
-
-export function saveRecord(record: StudentRecord): void {
-  record.updatedAt = Date.now();
-  localStorage.setItem(keyFor(record.roll), JSON.stringify(record));
+export function clearSession(): void {
+  localStorage.removeItem(K.session);
+  sessionStorage.removeItem(K.session);
 }
 
-export function listRecords(): StudentRecord[] {
-  const out: StudentRecord[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key || !key.startsWith(PREFIX)) continue;
-    try {
-      const parsed = JSON.parse(localStorage.getItem(key) ?? "") as StudentRecord;
-      if (parsed?.roll) out.push(parsed);
-    } catch {
-      /* skip corrupt entries */
-    }
-  }
-  return out.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+/* -------------------------------------------------------------- attendance */
+export function loadLog(roll: string): Record<string, Status> {
+  return read<Record<string, Status>>(K.log(roll), {});
+}
+export function saveLog(roll: string, log: Record<string, Status>): void {
+  write(K.log(roll), log);
 }
 
-export function deleteRecord(roll: string): void {
-  localStorage.removeItem(keyFor(roll));
+/* ---------------------------------------------------------------- settings */
+export function loadSettings(roll: string): Settings {
+  return { ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(K.settings(roll), {}) };
+}
+export function saveSettings(roll: string, settings: Settings): void {
+  write(K.settings(roll), settings);
+}
+
+/* ----------------------------------------------------------- faculty gate */
+export function loadFacultyPasscode(): string {
+  return read<string>(K.faculty, DEFAULT_FACULTY_PASSCODE);
+}
+export function saveFacultyPasscode(code: string): void {
+  write(K.faculty, code);
+}
+
+/* ------------------------------------------------------------------ theme */
+export function loadTheme(): "dark" | "light" {
+  return read<"dark" | "light">(K.theme, "dark");
+}
+export function saveTheme(theme: "dark" | "light"): void {
+  write(K.theme, theme);
+}
+
+/* ------------------------------------------------------------------- wipe */
+export function eraseStudentData(roll: string): void {
+  localStorage.removeItem(K.log(roll));
+  localStorage.removeItem(K.settings(roll));
 }

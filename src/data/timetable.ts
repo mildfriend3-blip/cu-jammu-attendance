@@ -2,30 +2,23 @@
  * Semester I (I-CCS) schedule — B.Tech Cyber Security,
  * Department of CSE & CSIT, Cluster University of Jammu.
  * 2026-27 odd semester, effective 7 September 2026.
- *
- * To adapt this app to another class, edit DAYS / SLOTS / SUBJECTS / TT below —
- * every view derives from this file.
  */
 import type { DayName, SlotKey, SlotMeta, Subject } from "../types";
 
 export const META = {
-  department: "Department of CSE & CSIT",
+  product: "Sentinel",
   university: "Cluster University of Jammu",
+  department: "Department of CSE & CSIT",
   programme: "B.Tech Cyber Security",
   semester: "Semester I",
   classTag: "I-CCS",
   room: "Fabricated Building Lab-2",
   term: "2026–27 Odd Semester (July–December 2026)",
   effectiveFrom: "7 September 2026",
+  version: "2.0.0",
 } as const;
 
-export const DAYS: DayName[] = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-];
+export const DAYS: DayName[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 export const SLOTS: SlotMeta[] = [
   { key: "A", label: "A-Core", time: "09:30–10:15" },
@@ -50,89 +43,60 @@ export const SUBJECTS: Record<string, Subject> = {
   IBBA1O01: {
     code: "IBBA1O01",
     name: "Introduction to Entrepreneurship & Startup",
+    short: "Entrepreneurship",
     faculty: "SM",
-    color: "--amber",
+    hue: "--s4",
   },
   IMAT1C03: {
     code: "IMAT1C03",
     name: "Mathematics for Engineering",
+    short: "Mathematics",
     faculty: "GF Maths — Dr. Arun Bali",
-    color: "--blue",
+    hue: "--s2",
   },
   BCCS1C01: {
     code: "BCCS1C01",
     name: "Python Programming",
+    short: "Python",
     faculty: "HK",
-    color: "--sage",
+    hue: "--s1",
   },
   BCCS1C02: {
     code: "BCCS1C02",
     name: "Computer Programming",
+    short: "C Programming",
     faculty: "JPS",
-    color: "--terracotta",
+    hue: "--s3",
   },
   BENG1O05: {
     code: "BENG1O05",
     name: "Professional Communication",
+    short: "Comm. Skills",
     faculty: "GF English",
-    color: "--red",
+    hue: "--s5",
   },
   BECE1C02: {
     code: "BECE1C02",
     name: "Electrical & Electronics (E&E)",
+    short: "E&E",
     faculty: "Dr. Rajiv Kumar",
-    color: "--blue",
+    hue: "--s6",
   },
   IEVS1O04: {
     code: "IEVS1O04",
     name: "Environmental Studies (EVS)",
+    short: "EVS",
     faculty: "MOOC",
-    color: "--sage",
+    hue: "--s7",
   },
 };
 
-/** Weekday → slot → course code. A missing slot means no class that period. */
 export const TT: Record<DayName, Partial<Record<SlotKey, string>>> = {
-  Monday: {
-    A: "IBBA1O01",
-    B: "BCCS1C02",
-    C: "BENG1O05",
-    D: "BECE1C02",
-    E: "BECE1C02",
-    H: "IEVS1O04",
-  },
-  Tuesday: {
-    A: "IBBA1O01",
-    B: "IMAT1C03",
-    C: "IMAT1C03",
-    D: "BECE1C02",
-    E: "BENG1O05",
-    F: "BENG1O05",
-  },
-  Wednesday: {
-    A: "IBBA1O01",
-    B: "BECE1C02",
-    C: "BCCS1C01",
-    D: "BCCS1C02",
-    E: "BCCS1C01",
-  },
-  Thursday: {
-    A: "IMAT1C03",
-    B: "BCCS1C01",
-    C: "BCCS1C02",
-    D: "BENG1O05",
-    E: "BCCS1C02",
-    H: "IEVS1O04",
-  },
-  Friday: {
-    A: "BECE1C02",
-    B: "BCCS1C01",
-    C: "BCCS1C02",
-    D: "IMAT1C03",
-    E: "IMAT1C03",
-    F: "IEVS1O04",
-    G: "IEVS1O04",
-  },
+  Monday: { A: "IBBA1O01", B: "BCCS1C02", C: "BENG1O05", D: "BECE1C02", E: "BECE1C02", H: "IEVS1O04" },
+  Tuesday: { A: "IBBA1O01", B: "IMAT1C03", C: "IMAT1C03", D: "BECE1C02", E: "BENG1O05", F: "BENG1O05" },
+  Wednesday: { A: "IBBA1O01", B: "BECE1C02", C: "BCCS1C01", D: "BCCS1C02", E: "BCCS1C01" },
+  Thursday: { A: "IMAT1C03", B: "BCCS1C01", C: "BCCS1C02", D: "BENG1O05", E: "BCCS1C02", H: "IEVS1O04" },
+  Friday: { A: "BECE1C02", B: "BCCS1C01", C: "BCCS1C02", D: "IMAT1C03", E: "IMAT1C03", F: "IEVS1O04", G: "IEVS1O04" },
 };
 
 /** Sessions flagged as labs/practicals, keyed `"Day|slot"`. */
@@ -155,3 +119,14 @@ export const SESSION_NOTES: Record<string, string> = {
   "Friday|C": "Venue: Class 6",
   "Friday|D": "Venue: Class 6",
 };
+
+export const DEFAULT_SETTINGS = {
+  target: 75,
+  notifyLowAttendance: true,
+  notifyClassReminder: true,
+  reminderLeadMinutes: 15,
+  examDate: null as string | null,
+};
+
+/** Default faculty passcode for the admin console (changeable in Settings). */
+export const DEFAULT_FACULTY_PASSCODE = "sentinel";

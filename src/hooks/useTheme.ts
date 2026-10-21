@@ -1,26 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
+import { loadTheme, saveTheme } from "../lib/storage";
 
-type Theme = "light" | "dark";
-const STORAGE_KEY = "cuj_theme";
+export type Theme = "dark" | "light";
 
-function initialTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-/** Light/dark theme with persistence; writes `data-theme` on <html>. */
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [theme, setTheme] = useState<Theme>(() => loadTheme());
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem(STORAGE_KEY, theme);
+    saveTheme(theme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", theme === "dark" ? "#060a0c" : "#f3f6f4");
   }, [theme]);
 
-  const toggle = useCallback(() => {
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
-  }, []);
-
-  return { theme, toggle };
+  const toggle = useCallback(() => setTheme((t) => (t === "dark" ? "light" : "dark")), []);
+  return { theme, setTheme, toggle };
 }

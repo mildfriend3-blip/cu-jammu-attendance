@@ -1,26 +1,67 @@
-# CU Jammu · Cyber Security — Timetable & Attendance
+# CU Jammu Sentinel
 
-An unofficial, offline-first web app for the **B.Tech Cyber Security, Semester I**
-class (`I-CCS`) of the Department of CSE & CSIT, Cluster University of Jammu —
-built from the department timetable for the **2026–27 odd semester** (effective
+**Attendance intelligence and timetable console** for the B.Tech Cyber Security,
+Semester I class (`I-CCS`) — Department of CSE & CSIT, Cluster University of Jammu.
+Built on the department timetable for the **2026–27 odd semester** (effective
 7 September 2026).
 
-It does two things:
-
-1. **Interactive timetable** — the week's classes in a clickable grid with a live
-   "current class" indicator, filters and a search box.
-2. **Per-student attendance tracker** — sign in with a roll number and mark each
-   class Present / Absent / Cancelled, then see your percentage per subject, an
-   overall figure, and how many classes you can afford to miss.
-
-Built with **React + TypeScript + Vite**. There is no backend: all data lives in
-the browser's `localStorage`, so the whole thing is a static site you can host
+Local-first: there is no backend, no analytics and no tracking. Every record lives
+in the browser's `localStorage`, so the whole product is a static site you can host
 anywhere for free.
 
-> **Not an official record.** The sign-in is a local profile, not real
-> authentication — there is no password and no server. Anyone using the same
-> browser can read or change any record. Treat the numbers as a personal
-> convenience and always confirm attendance with the department.
+> **Not an official record.** Accounts are a local convenience, not server-verified
+> authentication. Passwords are salted and hashed with PBKDF2-HMAC-SHA256
+> (210,000 iterations), but the verifier is stored in the browser, so anyone with
+> the device and devtools could read or replace it. Treat Sentinel as a personal
+> tracker and confirm attendance with the department.
+
+---
+
+## Features
+
+**Accounts**
+- Roll-number sign-up and sign-in, one account per roll number **and** per name
+  (both uniqueness checks are case-insensitive).
+- PBKDF2-SHA256 password hashing with a per-account random salt; live strength
+  meter with a blocklist for common and identity-derived passwords.
+- "Keep me signed in" (30-day session) vs. tab-only session, plus a
+  registered-accounts list for shared devices.
+- Student and faculty account types.
+
+**Timetable**
+- Full weekly grid with live "current slot" highlighting and a today column.
+- Search across code, subject and faculty; filter by subject or by theory/labs.
+- Clickable class cards with venue notes (ECE Department, PMMMT Lab, Friday's
+  "Class 6" room shift) and print support.
+
+**Attendance**
+- Mark Present / Absent / Cancelled per scheduled class on any date, with a
+  weekday strip, bulk "all present" and "clear day".
+- Cancelled classes are excluded from every percentage.
+- Per-subject cards showing rate, counts, a 30-day trend and a plain-language
+  verdict; overall ring gauge against a configurable target.
+- Bunk maths both ways: how many you can still miss, or how many you must attend
+  in a row to recover.
+
+**Insights**
+- 14-day daily-rate bar chart with a target line, subject comparison chart,
+  14-week attendance heatmap, 7/30-day rolling rates, present streak and
+  "if you attend the next 5 classes" projection.
+
+**Faculty console**
+- Passcode-gated class-wide view: cohort rate, per-subject cohort breakdown,
+  full roster sorted by risk, bulk marking for a date across all accounts, and
+  CSV export per student or for the whole roster.
+
+**History & data**
+- Day-grouped audit trail with filters and jump-to-edit.
+- CSV exports (audit log, subject summary, roster) and JSON backup/import.
+
+**Platform**
+- Installable PWA with an offline service worker.
+- Command palette (`⌘K` or `/`), keyboard shortcuts, dark and light themes.
+- Local notifications for low attendance and upcoming classes.
+- Responsive down to phone width; print stylesheet for the timetable and reports.
 
 ---
 
@@ -31,101 +72,115 @@ npm install
 npm run dev      # http://localhost:5173
 ```
 
-Other scripts:
-
-```bash
-npm run build      # type-check, then build to dist/
-npm run preview    # serve the production build locally
-npm run typecheck  # tsc --noEmit only
-```
+| Script | Purpose |
+| --- | --- |
+| `npm run dev` | Vite dev server |
+| `npm run build` | Type-check, then build to `dist/` |
+| `npm run preview` | Serve the production build |
+| `npm run typecheck` | `tsc --noEmit` only |
 
 Requires Node 18+ (Node 20 recommended).
+
+> Web Crypto is required for password hashing, so run over `https://` or
+> `localhost`. The deployed site is HTTPS, so this is only a dev concern.
 
 ---
 
 ## Deploying
 
-### GitHub Pages (included)
-
-A workflow at `.github/workflows/deploy.yml` builds and publishes the site.
-
-1. Push this repo to GitHub (branch `main`).
-2. In **Settings → Pages → Build and deployment**, set **Source** to
-   **GitHub Actions**.
-3. Push again (or run the workflow manually). The site appears at
-   `https://<user>.github.io/<repo>/`.
-
-Routing uses a hash router, so deep links and refreshes work on Pages without
-any server rewrites.
+### GitHub Pages
+`.github/workflows/deploy.yml` builds and publishes on every push to `main`.
+Enable it once in **Settings → Pages → Build and deployment → Source:
+GitHub Actions**.
 
 ### Vercel
+`vercel.json` pins the framework (`vite`), build command and output directory, so
+importing the repo is a one-click deploy. Or `vercel --prod` from the repo root.
 
-Import the repo at [vercel.com/new](https://vercel.com/new). Vercel detects Vite
-automatically — build command `npm run build`, output directory `dist`.
+### Netlify / any static host
+Build command `npm run build`, publish directory `dist`.
 
-### Netlify
-
-New site from Git → build command `npm run build`, publish directory `dist`.
-
-### Any static host
-
-Run `npm run build` and upload the contents of `dist/`.
+Routing uses a hash router, so deep links and refreshes work on static hosts with
+no rewrite rules.
 
 ---
 
-## Project structure
+## Architecture
 
 ```
 src/
-  data/timetable.ts        Semester I schedule, subjects and slot metadata
-  types.ts                 Shared TypeScript types
+  types.ts                     Shared domain types
+  data/timetable.ts            Schedule, subjects, slots, notes, defaults
   lib/
-    date.ts                ISO / weekday helpers
-    storage.ts             localStorage read & write per roll number
-    attendance.ts          Session lookup, totals, percentages, bunk maths
-  state/StudentContext.tsx Auth-by-roll-number state + attendance mutations + toasts
+    crypto.ts                  PBKDF2 hashing, password strength
+    storage.ts                 Versioned localStorage: accounts, sessions, logs, settings
+    attendance.ts              Session lookup, totals, percentages, bunk maths
+    analytics.ts               Series, rolling rates, streaks, heatmap, projections
+    export.ts                  CSV builders and file download
+    date.ts                    ISO / weekday helpers
+  state/
+    AuthContext.tsx            Sign-up, sign-in, session restore, uniqueness rules
+    AttendanceContext.tsx      Per-student log + settings, persisted on every write
+    ToastContext.tsx           Transient notifications
+  hooks/                       Clock, theme, hotkeys, notifications
   components/
-    Login.tsx              Roll-number sign-in and "continue as" list
-    Layout.tsx             Top bar, tab navigation, toast host
-    TimetableView.tsx      The interactive weekly grid
-    TodayView.tsx          Mark a date's classes P / A / C
-    SubjectsView.tsx       Per-subject percentages and verdicts
-    HistoryView.tsx        Every marked day
-    SettingsView.tsx       Target %, backup export/import, switch/erase
-  App.tsx                  Route table
-  main.tsx                 Entry point
-  styles.css               Design tokens and all styling
+    ui/                        Button, Field, Card, Modal, Badge, Stat, charts, icons
+    layout/                    App shell (sidebar, topbar) and command palette
+    auth/                      Sign-in / sign-up screen
+    pages/                     Overview, Timetable, MarkDay, Subjects, Insights,
+                               History, AdminConsole, Settings
+  styles.css                   Design tokens and all component styling
 ```
 
-## Data model
+### Data model
 
 ```ts
-type Status = "P" | "A" | "C";           // present, absent, cancelled
+type Status = "P" | "A" | "C";        // present, absent, cancelled
 
-interface StudentRecord {
-  roll: string;
-  name: string;
-  target: number;                        // required attendance %, default 75
-  createdAt: number;
-  updatedAt: number;
-  log: Record<string, Status>;           // key: "YYYY-MM-DD|slot", e.g. "2026-10-21|A"
+interface Account {                    // secrets; never rendered directly
+  roll: string; name: string; nameKey: string;
+  salt: string; hash: string; iterations: number;
+  role: "student" | "faculty";
+  createdAt: number; lastSeenAt: number;
 }
+
+type Log = Record<string, Status>;     // key: "YYYY-MM-DD|slot", e.g. "2026-10-21|A"
 ```
 
-Attendance is keyed by date **and** slot, and the subject is resolved from the
-weekday against `data/timetable.ts`. That means a record stays valid even if a
-subject's name changes, and cancelled classes are excluded from the percentage
-entirely.
+Attendance is keyed by **date and slot**; the subject is resolved from the weekday
+against `data/timetable.ts`. That keeps records valid if a subject is renamed, and
+lets cancelled classes drop out of the denominator entirely.
 
-Percentage is `present / (present + absent)`; the bunk calculator uses
-`target` to report either how many classes can still be missed or how many must
-be attended in a row to recover.
+```
+percentage  = present ÷ (present + absent)
+canMiss     = ⌊present ÷ target − held⌋
+needed      = ⌈(target × held − present) ÷ (1 − target)⌉
+```
 
-## Editing the timetable
+### localStorage keys
 
-Everything schedule-related is in `src/data/timetable.ts` — `DAYS`, `SLOTS`,
-`SUBJECTS` and the `TT` map of weekday → slot → course code. Update those and the
-whole app (grid, marking, percentages) follows.
+| Key | Contents |
+| --- | --- |
+| `sentinel.accounts.v1` | Account array including salts and hashes |
+| `sentinel.session.v1` | Current session (localStorage if remembered, else sessionStorage) |
+| `sentinel.log.v1::<ROLL>` | Attendance log for one student |
+| `sentinel.settings.v1::<ROLL>` | Target, alert prefs, exam date |
+| `sentinel.faculty.v1` | Faculty console passcode |
+| `sentinel.theme.v1` | Theme preference |
+
+## Adapting it to another class
+
+Everything schedule-related is in `src/data/timetable.ts` — `META`, `DAYS`,
+`SLOTS`, `SUBJECTS`, the `TT` weekday→slot map, plus `LAB_SESSIONS` and
+`SESSION_NOTES`. Change that one file and the grid, marking, analytics, CSV
+exports and faculty console all follow.
+
+## Adding real authentication
+
+The storage layer is deliberately isolated behind `src/lib/storage.ts` and
+`src/lib/crypto.ts`. To move to a server, replace those two modules with Supabase
+(or equivalent) and keep the contexts' interfaces unchanged — the UI needs no
+edits.
 
 ## License
 

@@ -1,51 +1,95 @@
-/** Shared domain types for the timetable + attendance app. */
-
 export type DayName = "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday";
-
 export type SlotKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I";
-
-/** Attendance status for one scheduled class on one date. */
 export type Status = "P" | "A" | "C";
+export type Role = "student" | "faculty";
 
 export interface Subject {
   code: string;
   name: string;
+  short: string;
   faculty: string;
-  /** CSS custom-property name holding this subject's accent colour. */
-  color: string;
+  /** CSS custom property holding this subject's hue. */
+  hue: string;
 }
 
 export interface SlotMeta {
   key: SlotKey;
-  /** Department slot label, e.g. "A-Core". */
   label: string;
-  /** Display time range, e.g. "09:30–10:15". */
   time: string;
 }
 
-/** A student's locally-stored record. */
-export interface StudentRecord {
+/** A student account. Secrets live here; never expose this to the UI directly. */
+export interface Account {
   roll: string;
   name: string;
-  /** Required attendance percentage, e.g. 75. */
-  target: number;
+  /** lowercased name, used to enforce uniqueness */
+  nameKey: string;
+  salt: string;
+  hash: string;
+  iterations: number;
+  role: Role;
   createdAt: number;
-  updatedAt: number;
-  /** Attendance log. Key is `"YYYY-MM-DD|slot"`, value is the status. */
-  log: Record<string, Status>;
+  lastSeenAt: number;
 }
 
-/** One scheduled class resolved for a particular date. */
+/** Account shape safe to render. */
+export interface AccountPublic {
+  roll: string;
+  name: string;
+  role: Role;
+  createdAt: number;
+  lastSeenAt: number;
+}
+
 export interface Session {
-  slot: SlotKey;
-  code: string;
+  roll: string;
+  token: string;
+  expiresAt: number;
 }
 
-/** Aggregated counts for a single subject. */
+export interface Settings {
+  target: number;
+  notifyLowAttendance: boolean;
+  notifyClassReminder: boolean;
+  reminderLeadMinutes: number;
+  examDate: string | null;
+}
+
 export interface SubjectTally {
   present: number;
   absent: number;
   cancelled: number;
 }
 
-export type Verdict = "good" | "warn" | "bad" | "none";
+export interface Totals {
+  per: Record<string, SubjectTally>;
+  present: number;
+  absent: number;
+  cancelled: number;
+  held: number;
+}
+
+export interface SessionEntry {
+  slot: SlotKey;
+  code: string;
+}
+
+export type Verdict = "ok" | "warn" | "bad" | "none";
+
+export interface Advice {
+  verdict: Verdict;
+  text: string;
+}
+
+export interface DaySeriesPoint {
+  date: string;
+  present: number;
+  absent: number;
+  rate: number | null;
+}
+
+export interface HeatCell {
+  date: string;
+  level: 0 | 1 | 2 | 3 | 4 | null;
+  title: string;
+}
