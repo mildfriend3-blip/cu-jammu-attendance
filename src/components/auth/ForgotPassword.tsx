@@ -40,8 +40,8 @@ export default function ForgotPassword({
         to: facultyEmail,
         app: META.product,
         department: `${META.department}, ${META.university}`,
-        roll: roll.trim().toUpperCase() || "(roll number)",
-        name: name.trim() || "(your name)",
+        roll: roll.trim().toUpperCase(),
+        name: name,
       }),
     [facultyEmail, roll, name],
   );
@@ -173,7 +173,7 @@ export default function ForgotPassword({
           <Field label="Your name" htmlFor="fp-name" hint="Also included, so the request is not anonymous.">
             <Input
               id="fp-name"
-              placeholder="Aarav Sharma"
+              placeholder="Your full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -196,8 +196,7 @@ export default function ForgotPassword({
               </>
             ) : (
               <>
-                No faculty address is configured yet, so the mail will open without a recipient. Someone can set one
-                in Settings.
+                No recipient is set, so the mail will open without an address. Someone can set one in Settings.
               </>
             )}
           </div>

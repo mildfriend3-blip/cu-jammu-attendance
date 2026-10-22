@@ -30,14 +30,19 @@ export interface ResetMailRequest {
 export function buildResetMailto(req: ResetMailRequest): string {
   const when = (req.when ?? new Date()).toLocaleString("en-IN");
   const subject = `Password reset request — ${req.app} (${req.roll})`;
+  // Blank details are omitted rather than printed as "(your name)".
+  const details = [
+    req.name.trim() ? `Name:       ${req.name.trim()}` : null,
+    req.roll.trim() ? `Roll:       ${req.roll.trim()}` : null,
+    `Requested:  ${when}`,
+  ].filter(Boolean);
+
   const body = [
     `To: ${req.department}`,
     "",
     `I have forgotten the password for my ${req.app} account and would like it reset.`,
     "",
-    `Name:       ${req.name}`,
-    `Roll:       ${req.roll}`,
-    `Requested:  ${when}`,
+    ...details,
     "",
     "Please reset my password, or send me a recovery code I can use myself.",
     "",

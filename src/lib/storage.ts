@@ -1,4 +1,4 @@
-import { DEFAULT_FACULTY_PASSCODE, DEFAULT_SETTINGS } from "../data/timetable";
+import { DEFAULT_FACULTY_EMAIL, DEFAULT_FACULTY_PASSCODE, DEFAULT_SETTINGS } from "../data/timetable";
 import type { Account, AccountPublic, Session, Settings, Status } from "../types";
 import type { Locks } from "./locks";
 import { randomToken } from "./crypto";
@@ -128,9 +128,9 @@ export function saveFacultyPasscode(code: string): void {
   write(K.faculty, code);
 }
 
-/** Where a reset request is addressed. Empty until someone configures it. */
+/** Where a reset request is addressed. Falls back to the shipped default. */
 export function loadFacultyEmail(): string {
-  return read<string>(K.facultyEmail, "");
+  return read<string>(K.facultyEmail, DEFAULT_FACULTY_EMAIL);
 }
 export function saveFacultyEmail(email: string): void {
   write(K.facultyEmail, email.trim());

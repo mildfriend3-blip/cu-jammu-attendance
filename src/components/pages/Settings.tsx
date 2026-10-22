@@ -256,7 +256,7 @@ export default function Settings() {
               <Field
                 label="Faculty contact for reset requests"
                 htmlFor="faculty-email"
-                hint="Used as the recipient when a student sends a reset request by email."
+                hint="Pre-filled with the app default. Clear it to remove, or set your own."
               >
                 <div style={{ display: "flex", gap: 8 }}>
                   <Input

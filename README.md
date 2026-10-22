@@ -100,7 +100,7 @@ npm run dev      # http://localhost:5173
 | `npm run typecheck` | `tsc --noEmit` only |
 | `npm run lint` | ESLint (flat config, typescript-eslint + react-hooks) |
 | `npm run verify` | lint → typecheck → test → build, in one go |
-| `npm test` | Unit tests for the CSV validator, password scorer, lock rules and recovery logic (108 assertions) |
+| `npm test` | Unit tests for the CSV validator, password scorer, lock rules and recovery logic (110 assertions) |
 
 Requires Node 18+ (see `.nvmrc`; Node 20 recommended). Formatting conventions
 live in `.editorconfig`.
@@ -138,7 +138,7 @@ things that genuinely work offline:
 | Path | How it works | Limitation |
 | --- | --- | --- |
 | **Recovery code** | Set at sign-up (or later in Settings). Stored as a salted PBKDF2 hash, exactly like the password. Enter roll + code + a new password to reset. | Only works on the device where the account was registered. |
-| **Email request** | Builds a `mailto:` URL with the roll number, name and a timestamp pre-filled, and opens the student's own mail app. | The app sends nothing; the student sends it. The recipient is configurable in Settings. |
+| **Email request** | Builds a `mailto:` URL with the roll number, name and a timestamp pre-filled, and opens the student's own mail app. | The app sends nothing; the student sends it. The recipient defaults to `DEFAULT_FACULTY_EMAIL` in `src/data/timetable.ts` and is overridable in Settings. |
 | **Faculty reset** | The console can issue a temporary password for any account on the device, shown once. | The console is passcode-gated, and only sees accounts on that browser. |
 
 The recovery code is the only self-service route, which is why Settings flags it
@@ -172,7 +172,7 @@ Bundles the pure logic modules with esbuild and runs three suites under Node —
 - `scripts/test-locks.mjs` (15) — freezing and reopening, re-lock idempotency,
   immutability of the helpers (they are used directly as React state), and the
   write guard.
-- `scripts/test-recovery.mjs` (28) — mailto encoding (no raw spaces, newlines
+- `scripts/test-recovery.mjs` (30) — mailto encoding (no raw spaces, newlines
   survive, empty recipient still valid), recovery-code normalisation, new-password
   rules, and the temporary-password generator — including a 200-run check that
   every generated password actually satisfies the password rules.

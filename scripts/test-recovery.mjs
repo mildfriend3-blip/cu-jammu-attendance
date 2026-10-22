@@ -35,6 +35,13 @@ console.log("\nmailto builder");
   const url = buildResetMailto({ to: "", app: "App", department: "D", roll: "R", name: "N" });
   ok("empty recipient still yields a valid mailto", url.startsWith("mailto:?"), url.slice(0, 24));
 }
+{
+  const decoded = decodeURIComponent(
+    buildResetMailto({ to: "a@b.c", app: "App", department: "D", roll: "26BECCS533", name: "   " }),
+  );
+  ok("blank name is omitted, not placeholdered", !decoded.includes("Name:") && !decoded.includes("your name"), decoded.slice(0, 120));
+  ok("roll still present when name is blank", decoded.includes("26BECCS533"));
+}
 
 console.log("\nrecovery code normalisation");
 ok("lower case accepted", normaliseRecoveryCode("k7rm3qpz") === "K7RM3QPZ");

@@ -147,7 +147,7 @@ export default function AuthPage() {
               <Input
                 id="roll"
                 className="mono"
-                placeholder="26BECCS533"
+                placeholder="e.g. 26BECCS533"
                 autoComplete="username"
                 spellCheck={false}
                 value={roll}
@@ -160,7 +160,7 @@ export default function AuthPage() {
               <Field label="Full name" htmlFor="name" error={error?.field === "name" ? error.message : undefined}>
                 <Input
                   id="name"
-                  placeholder="Aarav Sharma"
+                  placeholder="Your full name"
                   autoComplete="name"
                   value={name}
                   invalid={error?.field === "name"}

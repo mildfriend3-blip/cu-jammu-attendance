@@ -130,3 +130,11 @@ export const DEFAULT_SETTINGS = {
 
 /** Default faculty passcode for the admin console (changeable in Settings). */
 export const DEFAULT_FACULTY_PASSCODE = "sentinel";
+
+/**
+ * Default recipient for password-reset requests. Overridable at runtime in
+ * Settings, which is what a student should use if this address is wrong for them.
+ * Note this ships in the public source — move it to a VITE_ env var if it should
+ * not be readable in the repo.
+ */
+export const DEFAULT_FACULTY_EMAIL = "mildfriend3@gmail.com";
