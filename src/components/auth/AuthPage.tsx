@@ -4,6 +4,7 @@ import { scorePassword } from "../../lib/crypto";
 import { useAuth } from "../../state/AuthContext";
 import { useToast } from "../../state/ToastContext";
 import { Button, Field, Input, Select } from "../ui";
+import ForgotPassword from "./ForgotPassword";
 import { Icon, Logo } from "../ui/icons";
 
 type Mode = "login" | "signup";
@@ -25,6 +26,8 @@ export default function AuthPage() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [forgotOpen, setForgotOpen] = useState(false);
   const [role, setRole] = useState<"student" | "faculty">("student");
   const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -43,6 +46,7 @@ export default function AuthPage() {
     setError(null);
     setPassword("");
     setConfirm("");
+    setRecoveryCode("");
   }
 
   async function submit(event: FormEvent) {
@@ -54,7 +58,7 @@ export default function AuthPage() {
         const result = await signIn(roll, password, remember);
         if (!result.ok) setError({ field: result.field, message: result.message ?? "Could not sign in." });
       } else {
-        const result = await signUp({ roll, name, password, confirm, role });
+        const result = await signUp({ roll, name, password, confirm, role, recoveryCode });
         if (!result.ok) setError({ field: result.field, message: result.message ?? "Could not create account." });
         else push("Account created", "success");
       }
@@ -192,6 +196,18 @@ export default function AuthPage() {
               </div>
             </Field>
 
+            {mode === "login" && (
+              <div style={{ textAlign: "right", marginTop: -6 }}>
+                <button
+                  type="button"
+                  onClick={() => setForgotOpen(true)}
+                  style={{ background: "none", border: 0, padding: 0, color: "var(--accent)", fontSize: 13, cursor: "pointer" }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+
             {mode === "signup" && (
               <>
                 <div className="strength">
@@ -212,6 +228,24 @@ export default function AuthPage() {
                     value={confirm}
                     invalid={Boolean(confirm) && confirm !== password}
                     onChange={(e) => setConfirm(e.target.value)}
+                  />
+                </Field>
+
+                <Field
+                  label="Recovery code (optional)"
+                  htmlFor="recovery"
+                  error={error?.field === "recovery" ? error.message : undefined}
+                  hint="Save this somewhere safe. It is the only way to reset your own password without help."
+                >
+                  <Input
+                    id="recovery"
+                    className="mono"
+                    placeholder="e.g. K7RM-3QPZ-9TFH"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={recoveryCode}
+                    invalid={error?.field === "recovery"}
+                    onChange={(e) => setRecoveryCode(e.target.value.toUpperCase())}
                   />
                 </Field>
 
@@ -278,6 +312,20 @@ export default function AuthPage() {
           )}
         </div>
       </section>
+
+      {forgotOpen && (
+        <ForgotPassword
+          initialRoll={roll}
+          onClose={() => setForgotOpen(false)}
+          onReset={(resetRoll) => {
+            setForgotOpen(false);
+            setMode("login");
+            setRoll(resetRoll);
+            setPassword("");
+            setError(null);
+          }}
+        />
+      )}
     </div>
   );
 }

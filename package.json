@@ -11,8 +11,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "npm run build:test && node scripts/test-csv.mjs && node scripts/test-password.mjs && node scripts/test-locks.mjs",
-    "build:test": "esbuild src/lib/csv.ts --bundle --format=esm --platform=node --outfile=.tmp/csv.mjs --log-level=error && esbuild src/lib/crypto.ts --bundle --format=esm --platform=node --outfile=.tmp/crypto.mjs --log-level=error && esbuild src/lib/locks.ts --bundle --format=esm --platform=node --outfile=.tmp/locks.mjs --log-level=error",
+    "test": "npm run build:test && node scripts/test-csv.mjs && node scripts/test-password.mjs && node scripts/test-locks.mjs && node scripts/test-recovery.mjs",
+    "build:test": "esbuild src/lib/csv.ts --bundle --format=esm --platform=node --outfile=.tmp/csv.mjs --log-level=error && esbuild src/lib/crypto.ts --bundle --format=esm --platform=node --outfile=.tmp/crypto.mjs --log-level=error && esbuild src/lib/locks.ts --bundle --format=esm --platform=node --outfile=.tmp/locks.mjs --log-level=error && esbuild src/lib/recovery.ts --bundle --format=esm --platform=node --outfile=.tmp/recovery.mjs --log-level=error",
     "verify": "npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

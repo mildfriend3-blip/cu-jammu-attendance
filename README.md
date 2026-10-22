@@ -31,6 +31,8 @@ anywhere for free.
 - "Keep me signed in" (30-day session) vs. tab-only session, plus a
   registered-accounts list for shared devices.
 - Student and faculty account types.
+- **Password recovery** — see below; there is no server, so this is deliberately
+  not a "click the emailed link" flow.
 
 **Timetable**
 - Full weekly grid with live "current slot" highlighting and a today column.
@@ -98,7 +100,7 @@ npm run dev      # http://localhost:5173
 | `npm run typecheck` | `tsc --noEmit` only |
 | `npm run lint` | ESLint (flat config, typescript-eslint + react-hooks) |
 | `npm run verify` | lint → typecheck → test → build, in one go |
-| `npm test` | Unit tests for the CSV validator, password scorer and lock rules (83 assertions) |
+| `npm test` | Unit tests for the CSV validator, password scorer, lock rules and recovery logic (108 assertions) |
 
 Requires Node 18+ (see `.nvmrc`; Node 20 recommended). Formatting conventions
 live in `.editorconfig`.
@@ -127,6 +129,28 @@ no rewrite rules.
 
 ---
 
+## Password recovery
+
+There is no server, so the app cannot send mail, verify anyone's identity, or
+reset an account remotely. Rather than pretend otherwise, it offers the three
+things that genuinely work offline:
+
+| Path | How it works | Limitation |
+| --- | --- | --- |
+| **Recovery code** | Set at sign-up (or later in Settings). Stored as a salted PBKDF2 hash, exactly like the password. Enter roll + code + a new password to reset. | Only works on the device where the account was registered. |
+| **Email request** | Builds a `mailto:` URL with the roll number, name and a timestamp pre-filled, and opens the student's own mail app. | The app sends nothing; the student sends it. The recipient is configurable in Settings. |
+| **Faculty reset** | The console can issue a temporary password for any account on the device, shown once. | The console is passcode-gated, and only sees accounts on that browser. |
+
+The recovery code is the only self-service route, which is why Settings flags it
+prominently when unset. The mailto builder is a pure function
+(`src/lib/recovery.ts`) and is unit-tested, because hand-rolled URL encoding is
+easy to get subtly wrong.
+
+To make recovery a real, cross-device guarantee you need a backend — see
+[`docs/backend-migration.md`](docs/backend-migration.md).
+
+---
+
 ## Tests
 
 ```bash
@@ -145,9 +169,13 @@ Bundles the pure logic modules with esbuild and runs three suites under Node —
   passwords are never falsely rejected, and that any rejection always carries a
   non-empty reason (an empty one used to render as "Password needs ." with nothing
   after it).
-- `scripts/test-locks.mjs` (18) — freezing and reopening, re-lock idempotency,
-  immutability of the helpers (they are used directly as React state), the write
-  guard, and the range/latest queries.
+- `scripts/test-locks.mjs` (15) — freezing and reopening, re-lock idempotency,
+  immutability of the helpers (they are used directly as React state), and the
+  write guard.
+- `scripts/test-recovery.mjs` (28) — mailto encoding (no raw spaces, newlines
+  survive, empty recipient still valid), recovery-code normalisation, new-password
+  rules, and the temporary-password generator — including a 200-run check that
+  every generated password actually satisfies the password rules.
 
 ---
 
@@ -173,6 +201,7 @@ src/
     analytics.ts               Series, rolling rates, streaks, heatmap, projections
     csv.ts                     CSV parsing + import validation (unit-tested)
     locks.ts                   Day-freeze rules (unit-tested)
+    recovery.ts                Recovery-code rules, mailto builder, temp passwords
     export.ts                  CSV builders and file download
     date.ts                    ISO / weekday helpers
   state/
@@ -183,7 +212,7 @@ src/
   components/
     ui/                        Button, Field, Card, Modal, Badge, Stat, charts, icons
     layout/                    App shell (sidebar, topbar) and command palette
-    auth/                      Sign-in / sign-up screen
+    auth/                      Sign-in, sign-up, forgot-password flow
     pages/                     Overview, Timetable, MarkDay, Subjects, Insights,
                                History, AdminConsole, Settings
   styles.css                   Design tokens and all component styling

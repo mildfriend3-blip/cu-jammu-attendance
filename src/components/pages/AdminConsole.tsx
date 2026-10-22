@@ -12,6 +12,7 @@ import {
 import { fromISODate, prettyDate, toISODate, weekdayName } from "../../lib/date";
 import { loadFacultyPasscode, loadLocks, loadLog, loadSettings, listAccounts, saveLocks, saveLog } from "../../lib/storage";
 import { countLocked, isLocked, lockedDates } from "../../lib/locks";
+import { generateTemporaryPassword } from "../../lib/recovery";
 import { useAttendance } from "../../state/AttendanceContext";
 import { useAuth } from "../../state/AuthContext";
 import { useToast } from "../../state/ToastContext";
@@ -20,7 +21,7 @@ import { Icon } from "../ui/icons";
 import type { Status } from "../../types";
 
 export default function AdminConsole() {
-  const { account } = useAuth();
+  const { account, facultyResetPassword } = useAuth();
   const { push } = useToast();
   const { settings } = useAttendance();
 
@@ -30,6 +31,7 @@ export default function AdminConsole() {
   const [dateStr, setDateStr] = useState(toISODate(new Date()));
   const [refreshKey, setRefreshKey] = useState(0);
   const [overrideLocks, setOverrideLocks] = useState(false);
+  const [issued, setIssued] = useState<{ roll: string; password: string } | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [importName, setImportName] = useState<string | null>(null);
   const [applied, setApplied] = useState<{ rows: number; students: number } | null>(null);
@@ -125,6 +127,24 @@ export default function AdminConsole() {
         (skipped ? ` · skipped ${skipped} locked (enable override to force)` : ""),
       skipped && !touched ? "warn" : "success",
     );
+  }
+
+  async function resetStudentPassword(roll: string, name: string) {
+    if (
+      !window.confirm(
+        `Issue a new temporary password for ${name} (${roll})?\n\nTheir current password stops working immediately.`,
+      )
+    ) {
+      return;
+    }
+    const temp = generateTemporaryPassword();
+    const result = await facultyResetPassword(roll, temp);
+    if (!result.ok) {
+      push(result.message ?? "Could not reset the password", "error");
+      return;
+    }
+    setIssued({ roll, password: temp });
+    push(`Temporary password issued for ${roll}`, "success");
   }
 
   function unlockStudent(roll: string) {
@@ -480,6 +500,15 @@ export default function AdminConsole() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            icon="key"
+                            title="Issue a temporary password"
+                            onClick={() => void resetStudentPassword(r.account.roll, r.account.name)}
+                          >
+                            Reset
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
                             icon="download"
                           onClick={() => {
                             const log = loadLog(r.account.roll);
@@ -503,6 +532,50 @@ export default function AdminConsole() {
           </div>
         )}
       </Card>
+
+      {issued && (
+        <Card style={{ marginTop: 14 }}>
+          <CardBody style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+            <Icon name="key" size={20} style={{ color: "var(--warn)" }} />
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <div style={{ fontWeight: 600 }}>Temporary password for {issued.roll}</div>
+              <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 2 }}>
+                Read this to the student now — it is shown once and cannot be looked up again.
+              </div>
+              <div
+                className="mono"
+                style={{
+                  marginTop: 10,
+                  fontSize: 17,
+                  letterSpacing: ".06em",
+                  padding: "9px 13px",
+                  border: "1px solid var(--line-accent)",
+                  borderRadius: "var(--r-sm)",
+                  background: "var(--surface-2)",
+                  display: "inline-block",
+                }}
+              >
+                {issued.password}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button
+                size="sm"
+                icon="download"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(issued.password);
+                  push("Copied");
+                }}
+              >
+                Copy
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setIssued(null)}>
+                Dismiss
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       <Card style={{ marginTop: 14 }}>
         <CardHead title="Cohort by subject" sub={`Target default ${settings.target}%`} />

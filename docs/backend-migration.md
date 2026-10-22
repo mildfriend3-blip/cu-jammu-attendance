@@ -112,6 +112,17 @@ Authentication itself should go through the provider's own flow (email or
 phone based), with the roll number carried in `user_metadata` — do **not** try to
 reimplement password hashing on the client, which is what the local mode has to do.
 
+### Password recovery
+
+Recovery is the clearest example of what a backend buys you. Locally, a reset can
+only work on the one browser that holds the account, and the "email request" path
+is just a `mailto:` the student sends themselves. With a provider you get the real
+thing: the student enters their address, the provider mails a signed, expiring
+reset link, and the password changes server-side without anyone trusting the
+client. That flow replaces the recovery-code path entirely — delete
+`src/lib/recovery.ts`'s code handling and call the provider's
+`resetPasswordForEmail` instead.
+
 ## Suggested steps
 
 1. Create the Supabase project and run the SQL above.

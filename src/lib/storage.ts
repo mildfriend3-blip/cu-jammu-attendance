@@ -10,6 +10,7 @@ const K = {
   settings: (roll: string) => `sentinel.settings.v1::${roll.toUpperCase()}`,
   locks: (roll: string) => `sentinel.locks.v1::${roll.toUpperCase()}`,
   faculty: "sentinel.faculty.v1",
+  facultyEmail: "sentinel.facultyEmail.v1",
   theme: "sentinel.theme.v1",
 };
 
@@ -125,6 +126,14 @@ export function loadFacultyPasscode(): string {
 }
 export function saveFacultyPasscode(code: string): void {
   write(K.faculty, code);
+}
+
+/** Where a reset request is addressed. Empty until someone configures it. */
+export function loadFacultyEmail(): string {
+  return read<string>(K.facultyEmail, "");
+}
+export function saveFacultyEmail(email: string): void {
+  write(K.facultyEmail, email.trim());
 }
 
 /* ------------------------------------------------------------------ theme */

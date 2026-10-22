@@ -27,6 +27,10 @@ export interface Account {
   salt: string;
   hash: string;
   iterations: number;
+  /** Optional recovery-code verifier. Absent means self-service reset is off. */
+  recoverySalt?: string;
+  recoveryHash?: string;
+  recoveryIterations?: number;
   role: Role;
   createdAt: number;
   lastSeenAt: number;

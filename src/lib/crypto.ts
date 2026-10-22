@@ -7,7 +7,8 @@
  * can read or replace it. It protects against casual snooping, not a
  * determined local attacker. Real enforcement needs a server.
  */
-const ITERATIONS = 210_000;
+export const PBKDF2_ITERATIONS = 210_000;
+const ITERATIONS = PBKDF2_ITERATIONS;
 const KEY_BITS = 256;
 const SALT_BYTES = 16;
 

@@ -7,7 +7,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { hashPassword, scorePassword, verifyPassword } from "../lib/crypto";
+import { PBKDF2_ITERATIONS, hashPassword, scorePassword, verifyPassword } from "../lib/crypto";
+import {
+  isRecoveryCodeAcceptable,
+  normaliseRecoveryCode,
+  validateNewPassword,
+} from "../lib/recovery";
 import {
   clearSession,
   findAccount,
@@ -23,10 +28,13 @@ import {
 } from "../lib/storage";
 import type { AccountPublic, Role } from "../types";
 
+/** Which control an error belongs to, so the form can highlight the right field. */
+export type AuthField = "roll" | "name" | "password" | "recovery" | "current" | "next" | "code";
+
 export interface AuthResult {
   ok: boolean;
   message?: string;
-  field?: "roll" | "name" | "password";
+  field?: AuthField;
 }
 
 export interface SignUpInput {
@@ -35,6 +43,8 @@ export interface SignUpInput {
   password: string;
   confirm: string;
   role: Role;
+  /** Optional self-service recovery code. Without one, only faculty can reset. */
+  recoveryCode?: string;
 }
 
 interface AuthValue {
@@ -45,6 +55,13 @@ interface AuthValue {
   signIn: (roll: string, password: string, remember: boolean) => Promise<AuthResult>;
   signOut: () => void;
   refreshAccounts: () => void;
+  /** True when the account has a recovery code, so self-service reset is possible. */
+  hasRecovery: (roll: string) => boolean;
+  setRecoveryCode: (code: string) => Promise<AuthResult>;
+  changePassword: (current: string, next: string) => Promise<AuthResult>;
+  resetWithRecoveryCode: (roll: string, code: string, next: string) => Promise<AuthResult>;
+  /** Faculty-side reset from the console; the console is already passcode gated. */
+  facultyResetPassword: (roll: string, tempPassword: string) => Promise<AuthResult>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -93,6 +110,9 @@ function validateSignUp(input: SignUpInput): AuthResult | null {
   if (input.password !== input.confirm) {
     return { ok: false, field: "password", message: "Passwords do not match." };
   }
+  if (input.recoveryCode && !isRecoveryCodeAcceptable(input.recoveryCode)) {
+    return { ok: false, field: "recovery", message: "Recovery code needs at least 8 characters." };
+  }
   return null;
 }
 
@@ -128,6 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { salt, hash, iterations } = await hashPassword(input.password);
       const now = Date.now();
 
+      const recovery = input.recoveryCode?.trim()
+        ? await hashPassword(normaliseRecoveryCode(input.recoveryCode))
+        : null;
+
       insertAccount({
         roll,
         name,
@@ -135,6 +159,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         salt,
         hash,
         iterations,
+        recoverySalt: recovery?.salt,
+        recoveryHash: recovery?.hash,
+        recoveryIterations: recovery?.iterations,
         role: input.role,
         createdAt: now,
         lastSeenAt: now,
@@ -171,6 +198,95 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [refreshAccounts],
   );
 
+  const hasRecovery = useCallback((roll: string) => Boolean(findAccount(roll)?.recoveryHash), []);
+
+  const setRecoveryCode = useCallback(
+    async (code: string): Promise<AuthResult> => {
+      if (!account) return { ok: false, message: "Not signed in." };
+      if (!isRecoveryCodeAcceptable(code)) {
+        return { ok: false, field: "recovery", message: "Recovery code needs at least 8 characters." };
+      }
+      const { salt, hash, iterations } = await hashPassword(normaliseRecoveryCode(code));
+      updateAccount(account.roll, {
+        recoverySalt: salt,
+        recoveryHash: hash,
+        recoveryIterations: iterations,
+      });
+      return { ok: true };
+    },
+    [account],
+  );
+
+  const changePassword = useCallback(
+    async (current: string, next: string): Promise<AuthResult> => {
+      if (!account) return { ok: false, message: "Not signed in." };
+      const found = findAccount(account.roll);
+      if (!found) return { ok: false, message: "Account not found on this device." };
+      if (!(await verifyPassword(current, found))) {
+        return { ok: false, field: "current", message: "Current password is incorrect." };
+      }
+      const check = validateNewPassword(next, next, found.roll, found.name);
+      if (!check.ok) return { ok: false, field: "next", message: check.message };
+      const { salt, hash, iterations } = await hashPassword(next);
+      updateAccount(found.roll, { salt, hash, iterations });
+      return { ok: true };
+    },
+    [account],
+  );
+
+  const resetWithRecoveryCode = useCallback(
+    async (rollInput: string, code: string, next: string): Promise<AuthResult> => {
+      const roll = normaliseRoll(rollInput);
+      if (!roll) return { ok: false, field: "roll", message: "Enter your roll number." };
+      const found = findAccount(roll);
+
+      // Same wording whether the account or the code is wrong, so the form cannot
+      // be used to discover which roll numbers exist.
+      const wrong: AuthResult = {
+        ok: false,
+        field: "code",
+        message: "Roll number or recovery code is incorrect.",
+      };
+      if (!found) return wrong;
+      if (!found.recoveryHash || !found.recoverySalt) {
+        return {
+          ok: false,
+          field: "code",
+          message: "No recovery code is set for that roll number — ask faculty to reset it.",
+        };
+      }
+
+      const valid = await verifyPassword(normaliseRecoveryCode(code), {
+        salt: found.recoverySalt,
+        hash: found.recoveryHash,
+        iterations: found.recoveryIterations ?? PBKDF2_ITERATIONS,
+      });
+      if (!valid) return wrong;
+
+      const check = validateNewPassword(next, next, found.roll, found.name);
+      if (!check.ok) return { ok: false, field: "next", message: check.message };
+
+      const { salt, hash, iterations } = await hashPassword(next);
+      updateAccount(found.roll, { salt, hash, iterations });
+      return { ok: true };
+    },
+    [],
+  );
+
+  const facultyResetPassword = useCallback(
+    async (rollInput: string, tempPassword: string): Promise<AuthResult> => {
+      const roll = normaliseRoll(rollInput);
+      const found = findAccount(roll);
+      if (!found) return { ok: false, message: "No such account on this device." };
+      const check = validateNewPassword(tempPassword, tempPassword, found.roll, found.name);
+      if (!check.ok) return { ok: false, message: check.message };
+      const { salt, hash, iterations } = await hashPassword(tempPassword);
+      updateAccount(found.roll, { salt, hash, iterations });
+      return { ok: true };
+    },
+    [],
+  );
+
   const signOut = useCallback(() => {
     clearSession();
     setAccount(null);
@@ -178,8 +294,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshAccounts]);
 
   const value = useMemo<AuthValue>(
-    () => ({ account, accounts, booting, signUp, signIn, signOut, refreshAccounts }),
-    [account, accounts, booting, signUp, signIn, signOut, refreshAccounts],
+    () => ({
+      account,
+      accounts,
+      booting,
+      signUp,
+      signIn,
+      signOut,
+      refreshAccounts,
+      hasRecovery,
+      setRecoveryCode,
+      changePassword,
+      resetWithRecoveryCode,
+      facultyResetPassword,
+    }),
+    [
+      account,
+      accounts,
+      booting,
+      signUp,
+      signIn,
+      signOut,
+      refreshAccounts,
+      hasRecovery,
+      setRecoveryCode,
+      changePassword,
+      resetWithRecoveryCode,
+      facultyResetPassword,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
