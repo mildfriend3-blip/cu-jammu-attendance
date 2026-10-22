@@ -13,13 +13,13 @@ import { downloadFile } from "../lib/export";
 import { canEditDay, isLocked, lockDay as lockDate, unlockDay as unlockDate, type Locks } from "../lib/locks";
 import {
   eraseStudentData,
-  loadFacultyPasscode,
   loadLocks,
   loadLog,
   loadSettings,
   saveLocks,
   saveLog,
   saveSettings,
+  verifyFacultyPasscode,
 } from "../lib/storage";
 import type { Settings, SlotKey, Status, Totals } from "../types";
 import { useAuth } from "./AuthContext";
@@ -41,7 +41,7 @@ interface AttendanceValue {
   clearDay: (isoDate: string) => boolean;
   lockDay: (isoDate: string) => void;
   /** Reopens a frozen day. Requires the faculty passcode. */
-  unlockDay: (isoDate: string, passcode: string) => boolean;
+  unlockDay: (isoDate: string, passcode: string) => Promise<boolean>;
   updateSettings: (patch: Partial<Settings>) => void;
   erase: () => void;
   replaceLog: (log: Record<string, Status>, locks?: Locks) => void;
@@ -134,8 +134,8 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
   );
 
   const unlockDay = useCallback(
-    (isoDate: string, passcode: string): boolean => {
-      if (passcode !== loadFacultyPasscode()) return false;
+    async (isoDate: string, passcode: string): Promise<boolean> => {
+      if (!(await verifyFacultyPasscode(passcode))) return false;
       commitLocks(unlockDate(locks, isoDate));
       return true;
     },

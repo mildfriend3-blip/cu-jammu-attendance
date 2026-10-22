@@ -58,8 +58,8 @@ export default function MarkDay() {
     push("Day submitted and locked", "success");
   }
 
-  function onUnlock() {
-    if (unlockDay(dateStr, passcode)) {
+  async function onUnlock() {
+    if (await unlockDay(dateStr, passcode)) {
       setUnlockOpen(false);
       setPasscode("");
       setPassError(null);
@@ -286,7 +286,7 @@ export default function MarkDay() {
               >
                 Cancel
               </Button>
-              <Button variant="solid" icon="key" onClick={onUnlock}>
+              <Button variant="solid" icon="key" onClick={() => void onUnlock()}>
                 Unlock day
               </Button>
             </>
@@ -305,7 +305,7 @@ export default function MarkDay() {
               invalid={Boolean(passError)}
               placeholder="••••••••"
               onChange={(e) => setPasscode(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && onUnlock()}
+              onKeyDown={(e) => { if (e.key === "Enter") void onUnlock(); }}
             />
           </Field>
         </Modal>

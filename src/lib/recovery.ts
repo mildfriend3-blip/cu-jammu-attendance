@@ -86,11 +86,12 @@ const DIGITS = "23456789";
 const LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 /**
- * Readable one-time password, e.g. `k7Rm-3QpZ-9tFh`.
+ * Readable random secret, e.g. `k7Rm-3QpZ-9tFh`. Used for both the temporary
+ * password the faculty console issues and the faculty gate passcode itself.
  * A letter and a digit are placed up front so the result always satisfies the
  * password rules, whatever the random tail happens to be.
  */
-export function generateTemporaryPassword(groups = 3, size = 4): string {
+export function generateReadableSecret(groups = 3, size = 4): string {
   const total = groups * size;
   const bytes = crypto.getRandomValues(new Uint8Array(total));
   const chars: string[] = [];

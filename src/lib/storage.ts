@@ -1,4 +1,6 @@
-import { DEFAULT_FACULTY_EMAIL, DEFAULT_FACULTY_PASSCODE, DEFAULT_SETTINGS } from "../data/timetable";
+import { FACULTY_EMAIL, DEFAULT_SETTINGS } from "../data/timetable";
+import type { ThrottleState } from "./throttle";
+import { emptyThrottle } from "./throttle";
 import type { Account, AccountPublic, Session, Settings, Status } from "../types";
 import type { Locks } from "./locks";
 import { randomToken } from "./crypto";
@@ -9,7 +11,9 @@ const K = {
   log: (roll: string) => `sentinel.log.v1::${roll.toUpperCase()}`,
   settings: (roll: string) => `sentinel.settings.v1::${roll.toUpperCase()}`,
   locks: (roll: string) => `sentinel.locks.v1::${roll.toUpperCase()}`,
-  faculty: "sentinel.faculty.v1",
+  faculty: "sentinel.faculty.v2",
+  facultyLegacy: "sentinel.faculty.v1",
+  throttle: "sentinel.facultyThrottle.v1",
   facultyEmail: "sentinel.facultyEmail.v1",
   theme: "sentinel.theme.v1",
 };
@@ -121,16 +125,68 @@ export function saveSettings(roll: string, settings: Settings): void {
 }
 
 /* ----------------------------------------------------------- faculty gate */
-export function loadFacultyPasscode(): string {
-  return read<string>(K.faculty, DEFAULT_FACULTY_PASSCODE);
-}
-export function saveFacultyPasscode(code: string): void {
-  write(K.faculty, code);
+/**
+ * The faculty passcode is stored as a salted PBKDF2 verifier, never in clear
+ * text, and there is no shipped default — an unconfigured gate stays shut.
+ * Verification is async because it hashes.
+ */
+export interface PasscodeRecord {
+  salt: string;
+  hash: string;
+  iterations: number;
 }
 
-/** Where a reset request is addressed. Falls back to the shipped default. */
+function readPasscodeRecord(): PasscodeRecord | null {
+  const record = read<PasscodeRecord | null>(K.faculty, null);
+  if (!record || typeof record.hash !== "string" || typeof record.salt !== "string") return null;
+  return record;
+}
+
+export function hasFacultyPasscode(): boolean {
+  return readPasscodeRecord() !== null;
+}
+
+export async function setFacultyPasscode(code: string): Promise<void> {
+  const { hashPassword } = await import("./crypto");
+  const { salt, hash, iterations } = await hashPassword(code);
+  write(K.faculty, { salt, hash, iterations });
+}
+
+export async function verifyFacultyPasscode(code: string): Promise<boolean> {
+  const record = readPasscodeRecord();
+  if (!record) return false;
+  const { verifyPassword } = await import("./crypto");
+  return verifyPassword(code, record);
+}
+
+export function clearFacultyPasscode(): void {
+  localStorage.removeItem(K.faculty);
+}
+
+/**
+ * One-time upgrade from the v1 gate, which stored the passcode in clear text and
+ * shipped a guessable default. Any stored value is hashed and re-saved; the old
+ * shipped default is discarded outright so it can never open the gate again.
+ */
+export async function ensureSecurityMigration(): Promise<void> {
+  const legacy = read<string | null>(K.facultyLegacy, null);
+  if (legacy === null) return;
+  localStorage.removeItem(K.facultyLegacy);
+  const trimmed = typeof legacy === "string" ? legacy.trim() : "";
+  if (!trimmed || trimmed === "sentinel" || trimmed.length < 4) return;
+  await setFacultyPasscode(trimmed);
+}
+
+export function loadThrottle(): ThrottleState {
+  return read<ThrottleState>(K.throttle, emptyThrottle());
+}
+export function saveThrottle(state: ThrottleState): void {
+  write(K.throttle, state);
+}
+
+/** Where a reset request is addressed. Prefer VITE_FACULTY_EMAIL over the literal. */
 export function loadFacultyEmail(): string {
-  return read<string>(K.facultyEmail, DEFAULT_FACULTY_EMAIL);
+  return read<string>(K.facultyEmail, FACULTY_EMAIL);
 }
 export function saveFacultyEmail(email: string): void {
   write(K.facultyEmail, email.trim());

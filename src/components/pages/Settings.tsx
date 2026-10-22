@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { DEFAULT_FACULTY_PASSCODE, META } from "../../data/timetable";
+import { META } from "../../data/timetable";
 import { percentage } from "../../lib/attendance";
 import { attendanceLogCSV, downloadFile, subjectSummaryCSV } from "../../lib/export";
-import { loadFacultyEmail, loadFacultyPasscode, saveFacultyEmail, saveFacultyPasscode } from "../../lib/storage";
+import {
+  hasFacultyPasscode,
+  loadFacultyEmail,
+  saveFacultyEmail,
+  setFacultyPasscode,
+  verifyFacultyPasscode,
+} from "../../lib/storage";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useTheme } from "../../hooks/useTheme";
 import { useAttendance } from "../../state/AttendanceContext";
@@ -22,7 +28,10 @@ export default function Settings() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [targetDraft, setTargetDraft] = useState(String(settings.target));
   const [examDraft, setExamDraft] = useState(settings.examDate ?? "");
-  const [passcode, setPasscode] = useState("");
+  const [currentGate, setCurrentGate] = useState("");
+  const [nextGate, setNextGate] = useState("");
+  const [confirmGate, setConfirmGate] = useState("");
+  const [gateConfigured, setGateConfigured] = useState(() => hasFacultyPasscode());
   const [currentPw, setCurrentPw] = useState("");
   const [nextPw, setNextPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -30,8 +39,6 @@ export default function Settings() {
   const [emailDraft, setEmailDraft] = useState(() => loadFacultyEmail());
   const [pwError, setPwError] = useState<{ field?: string; message: string } | null>(null);
   const [recoverySet, setRecoverySet] = useState(() => hasRecovery(account?.roll ?? ""));
-  const [isDefaultPasscode, setIsDefaultPasscode] = useState(() => loadFacultyPasscode() === DEFAULT_FACULTY_PASSCODE);
-
   // keep the draft in step when the target changes elsewhere (e.g. a backup import)
   useEffect(() => setTargetDraft(String(settings.target)), [settings.target]);
   const [confirmText, setConfirmText] = useState("");
@@ -400,48 +407,80 @@ export default function Settings() {
 
           <div className="divider" style={{ borderTop: "1px solid var(--line)", margin: "20px 0" }} />
 
-          <Field
-            label="Faculty console passcode"
-            htmlFor="pc"
-            hint={`Current passcode is stored in this browser. Default is "sentinel".`}
-          >
-            <div style={{ display: "flex", gap: 8 }}>
-              <Input
-                id="pc"
-                className="mono"
-                type="text"
-                placeholder="new passcode"
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-              />
-              <Button
-                variant="solid"
-                icon="key"
-                onClick={() => {
-                  if (passcode.trim().length < 4) {
-                    push("Use at least 4 characters", "error");
-                    return;
-                  }
-                  saveFacultyPasscode(passcode.trim());
-                  setIsDefaultPasscode(passcode.trim() === DEFAULT_FACULTY_PASSCODE);
-                  setPasscode("");
-                  push("Faculty passcode updated", "success");
-                }}
-              >
-                Update
-              </Button>
-            </div>
-          </Field>
-          <div className="hint" style={{ marginTop: 8 }}>
-            {isDefaultPasscode ? (
-              <>
-                Still using the default passcode <span className="mono">sentinel</span> — change it before sharing this
-                device.
-              </>
-            ) : (
-              <>A custom passcode is set for this browser.</>
-            )}
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-2)", marginBottom: 10 }}>
+            Faculty console passcode
           </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+            <Badge tone={gateConfigured ? "ok" : "warn"}>
+              {gateConfigured ? "passcode set" : "not set — console is locked"}
+            </Badge>
+            <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
+              Stored as a PBKDF2 hash. It is never displayed, and cannot be recovered.
+            </span>
+          </div>
+
+          <div className="grid c2" style={{ alignItems: "end" }}>
+            <Field
+              label="Current passcode"
+              htmlFor="gate-current"
+              hint="Required so a signed-in student cannot change the gate."
+            >
+              <Input
+                id="gate-current"
+                type="password"
+                className="mono"
+                autoComplete="off"
+                value={currentGate}
+                onChange={(e) => setCurrentGate(e.target.value)}
+              />
+            </Field>
+            <div />
+            <Field label="New passcode" htmlFor="gate-next" hint="At least 8 characters.">
+              <Input
+                id="gate-next"
+                type="password"
+                className="mono"
+                autoComplete="off"
+                value={nextGate}
+                onChange={(e) => setNextGate(e.target.value)}
+              />
+            </Field>
+            <Field label="Confirm new passcode" htmlFor="gate-confirm">
+              <Input
+                id="gate-confirm"
+                type="password"
+                className="mono"
+                autoComplete="off"
+                value={confirmGate}
+                invalid={Boolean(confirmGate) && confirmGate !== nextGate}
+                onChange={(e) => setConfirmGate(e.target.value)}
+              />
+            </Field>
+          </div>
+
+          <Button
+            variant="solid"
+            icon="key"
+            style={{ marginTop: 14 }}
+            disabled={nextGate.length < 8 || nextGate !== confirmGate}
+            onClick={() => {
+              void (async () => {
+                if (gateConfigured && !(await verifyFacultyPasscode(currentGate))) {
+                  push("Current passcode is incorrect", "error");
+                  return;
+                }
+                await setFacultyPasscode(nextGate);
+                setGateConfigured(true);
+                setCurrentGate("");
+                setNextGate("");
+                setConfirmGate("");
+                push(gateConfigured ? "Passcode replaced" : "Passcode set", "success");
+              })();
+            }}
+          >
+            {gateConfigured ? "Replace passcode" : "Set passcode"}
+          </Button>
+
         </CardBody>
       </Card>
 

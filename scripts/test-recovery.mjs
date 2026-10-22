@@ -1,5 +1,5 @@
 import {
-  buildResetMailto, validateNewPassword, generateTemporaryPassword,
+  buildResetMailto, validateNewPassword, generateReadableSecret,
   normaliseRecoveryCode, isRecoveryCodeAcceptable,
 } from "../.tmp/recovery.mjs";
 import { scorePassword } from "../.tmp/crypto.mjs";
@@ -61,8 +61,8 @@ console.log("\nnew-password rules");
 
 console.log("\ntemporary password");
 {
-  const a = generateTemporaryPassword();
-  const b = generateTemporaryPassword();
+  const a = generateReadableSecret();
+  const b = generateReadableSecret();
   ok("three groups", a.split("-").length === 3, a);
   ok("grouped in fours", a.split("-").every((g) => g.length === 4), a);
   ok("contains a letter", /[A-Za-z]/.test(a));
@@ -73,7 +73,7 @@ console.log("\ntemporary password");
   // the whole point: a generated password must actually be usable
   let allValid = true;
   for (let i = 0; i < 200; i++) {
-    const p = generateTemporaryPassword();
+    const p = generateReadableSecret();
     if (!validateNewPassword(p, p, "26BECCS533", "Lokesh Bhavsar").ok) { allValid = false; console.log("     bad:", p); break; }
   }
   ok("200 generated passwords all pass the rules", allValid);

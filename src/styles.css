@@ -1,4 +1,25 @@
 /* ============================================================================
+   Self-hosted variable fonts.
+   Bundled rather than pulled from a CDN so the app makes no third-party
+   requests at all — nothing about a student's session leaks to a font host,
+   and the strict CSP in index.html needs no external origin.
+   ========================================================================= */
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/space-grotesk-var.woff2") format("woff2-variations");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono-var.woff2") format("woff2-variations");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ============================================================================
    CUJ Attendance — design tokens
    Dark cyber-security console (default) + a light "daylight" variant.
    ========================================================================= */

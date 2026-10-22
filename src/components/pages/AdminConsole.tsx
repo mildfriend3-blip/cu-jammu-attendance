@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SUBJECTS } from "../../data/timetable";
 import { computeTotals, logKey, percentage, sessionsOn, subjectHeld } from "../../lib/attendance";
 import { rosterCSV, downloadFile, subjectSummaryCSV } from "../../lib/export";
@@ -10,9 +10,30 @@ import {
   type ImportPreview,
 } from "../../lib/csv";
 import { fromISODate, prettyDate, toISODate, weekdayName } from "../../lib/date";
-import { loadFacultyPasscode, loadLocks, loadLog, loadSettings, listAccounts, saveLocks, saveLog } from "../../lib/storage";
-import { countLocked, isLocked, lockedDates } from "../../lib/locks";
-import { generateTemporaryPassword } from "../../lib/recovery";
+import {
+  hasFacultyPasscode,
+  loadThrottle,
+  loadLocks,
+  loadLog,
+  loadSettings,
+  listAccounts,
+  saveLocks,
+  saveLog,
+  saveThrottle,
+  setFacultyPasscode,
+  verifyFacultyPasscode,
+} from "../../lib/storage";
+import { countLocked, isLocked as isDayFrozen, lockedDates } from "../../lib/locks";
+import {
+  attemptsLeft,
+  describeLock,
+  isLocked as isGateLocked,
+  registerFailure,
+  registerSuccess,
+  remainingMs,
+  type ThrottleState,
+} from "../../lib/throttle";
+import { generateReadableSecret } from "../../lib/recovery";
 import { useAttendance } from "../../state/AttendanceContext";
 import { useAuth } from "../../state/AuthContext";
 import { useToast } from "../../state/ToastContext";
@@ -28,6 +49,12 @@ export default function AdminConsole() {
   const [unlocked, setUnlocked] = useState(false);
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [gateBusy, setGateBusy] = useState(false);
+  const [gateConfigured, setGateConfigured] = useState(() => hasFacultyPasscode());
+  const [throttle, setThrottle] = useState<ThrottleState>(() => loadThrottle());
+  const [proposed, setProposed] = useState<string | null>(null);
+  const [savedAck, setSavedAck] = useState(false);
+  const [clock, setClock] = useState(() => Date.now());
   const [dateStr, setDateStr] = useState(toISODate(new Date()));
   const [refreshKey, setRefreshKey] = useState(0);
   const [overrideLocks, setOverrideLocks] = useState(false);
@@ -96,13 +123,60 @@ export default function AdminConsole() {
     push(`Applied ${preview.rows.length} marks across ${grouped.size} student(s)`, "success");
   }
 
-  function unlock() {
-    if (code === loadFacultyPasscode()) {
+  // ticks only while the gate is locked, so a countdown stays accurate
+  useEffect(() => {
+    if (!isGateLocked(throttle, Date.now())) return;
+    const id = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [throttle]);
+
+  function beginSetup() {
+    setProposed(generateReadableSecret(4, 4));
+    setSavedAck(false);
+  }
+
+  async function confirmSetup() {
+    if (!proposed || !savedAck) return;
+    setGateBusy(true);
+    try {
+      await setFacultyPasscode(proposed);
+      const fresh = registerSuccess();
+      setThrottle(fresh);
+      saveThrottle(fresh);
+      setGateConfigured(true);
       setUnlocked(true);
-      setCodeError(null);
-      push("Faculty console unlocked", "success");
-    } else {
-      setCodeError("Incorrect passcode.");
+      setProposed(null);
+      push("Faculty passcode set", "success");
+    } finally {
+      setGateBusy(false);
+    }
+  }
+
+  async function unlock() {
+    if (isGateLocked(throttle, Date.now())) return;
+    setGateBusy(true);
+    try {
+      if (await verifyFacultyPasscode(code)) {
+        const fresh = registerSuccess();
+        setThrottle(fresh);
+        saveThrottle(fresh);
+        setUnlocked(true);
+        setCode("");
+        setCodeError(null);
+        push("Faculty console unlocked", "success");
+      } else {
+        const next = registerFailure(throttle, Date.now());
+        setThrottle(next);
+        saveThrottle(next);
+        setCode("");
+        setCodeError(
+          isGateLocked(next, Date.now())
+            ? describeLock(remainingMs(next, Date.now()))
+            : `Incorrect passcode. ${attemptsLeft(next)} attempt${attemptsLeft(next) === 1 ? "" : "s"} left before a lockout.`,
+        );
+      }
+    } finally {
+      setGateBusy(false);
     }
   }
 
@@ -112,7 +186,7 @@ export default function AdminConsole() {
     let skipped = 0;
     for (const a of listAccounts()) {
       const locks = loadLocks(a.roll);
-      if (isLocked(locks, dateStr) && !overrideLocks) {
+      if (isDayFrozen(locks, dateStr) && !overrideLocks) {
         skipped++;
         continue;
       }
@@ -137,7 +211,7 @@ export default function AdminConsole() {
     ) {
       return;
     }
-    const temp = generateTemporaryPassword();
+    const temp = generateReadableSecret();
     const result = await facultyResetPassword(roll, temp);
     if (!result.ok) {
       push(result.message ?? "Could not reset the password", "error");
@@ -161,39 +235,149 @@ export default function AdminConsole() {
   }
 
   if (!unlocked) {
+    const locked = isGateLocked(throttle, clock);
     return (
       <>
         <div className="page-head">
           <div>
             <h1>Faculty console</h1>
-            <div className="sub">Class-wide attendance tools, gated behind a passcode.</div>
+            <div className="sub">Class-wide attendance tools. Requires the faculty passcode.</div>
           </div>
         </div>
-        <Card style={{ maxWidth: 460 }}>
-          <CardHead title="Unlock" sub="Default passcode is sentinel — change it in Settings." />
-          <CardBody>
-            <Field label="Faculty passcode" htmlFor="fcode" error={codeError ?? undefined}>
-              <div className="pw-wrap">
-                <Input
-                  id="fcode"
-                  type="password"
-                  className="mono"
-                  value={code}
-                  invalid={Boolean(codeError)}
-                  onChange={(e) => setCode(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && unlock()}
-                  placeholder="••••••••"
-                />
-              </div>
-            </Field>
-            <Button variant="solid" block style={{ marginTop: 16 }} icon="key" onClick={unlock}>
-              Unlock console
-            </Button>
-            <div className="hint" style={{ marginTop: 14 }}>
-              <Icon name="info" size={12} style={{ verticalAlign: "-2px", marginRight: 5 }} />
-              This gate is a convenience, not security — the passcode lives in this browser alongside the records.
-            </div>
-          </CardBody>
+
+        <Card style={{ maxWidth: 520 }}>
+          {!gateConfigured && (
+            <>
+              <CardHead title="Set up the faculty passcode" sub="No passcode is configured on this device yet." />
+              <CardBody>
+                {!proposed ? (
+                  <>
+                    <p style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 16 }}>
+                      The console can rewrite any student&apos;s attendance and reset their password, so it is locked
+                      behind a passcode. There is no default — generate one now.
+                    </p>
+                    <Button variant="solid" block icon="key" onClick={beginSetup}>
+                      Generate a passcode
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 12 }}>
+                      Write this down now. It is shown once, stored only as a hash, and cannot be recovered.
+                    </p>
+                    <div
+                      className="mono"
+                      style={{
+                        fontSize: 20,
+                        letterSpacing: ".08em",
+                        padding: "14px 16px",
+                        border: "1px solid var(--line-accent)",
+                        borderRadius: "var(--r-sm)",
+                        background: "var(--surface-2)",
+                        textAlign: "center",
+                        userSelect: "all",
+                      }}
+                    >
+                      {proposed}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      <Button
+                        size="sm"
+                        icon="download"
+                        onClick={() => {
+                          void navigator.clipboard?.writeText(proposed);
+                          push("Copied");
+                        }}
+                      >
+                        Copy
+                      </Button>
+                      <Button size="sm" variant="ghost" icon="refresh" onClick={beginSetup}>
+                        Regenerate
+                      </Button>
+                    </div>
+
+                    <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, marginTop: 18, cursor: "pointer" }}>
+                      <input type="checkbox" checked={savedAck} onChange={(e) => setSavedAck(e.target.checked)} />
+                      <span>I have saved this passcode somewhere outside this browser.</span>
+                    </label>
+
+                    <Button
+                      variant="solid"
+                      block
+                      style={{ marginTop: 14 }}
+                      icon="check"
+                      disabled={!savedAck || gateBusy}
+                      onClick={() => void confirmSetup()}
+                    >
+                      {gateBusy ? "Saving…" : "Set passcode and unlock"}
+                    </Button>
+                  </>
+                )}
+              </CardBody>
+            </>
+          )}
+
+          {gateConfigured && (
+            <>
+              <CardHead
+                title="Unlock the console"
+                sub={locked ? undefined : "Enter the faculty passcode."}
+              />
+              <CardBody>
+                {locked ? (
+                  <div
+                    style={{
+                      border: "1px solid var(--line)",
+                      borderLeft: "3px solid var(--warn)",
+                      borderRadius: "var(--r-sm)",
+                      background: "var(--warn-dim)",
+                      color: "var(--warn)",
+                      padding: "12px 14px",
+                      fontSize: 13,
+                    }}
+                  >
+                    {describeLock(remainingMs(throttle, clock))}
+                  </div>
+                ) : (
+                  <>
+                    <Field label="Faculty passcode" htmlFor="fcode" error={codeError ?? undefined}>
+                      <div className="pw-wrap">
+                        <Input
+                          id="fcode"
+                          type="password"
+                          className="mono"
+                          value={code}
+                          autoComplete="off"
+                          invalid={Boolean(codeError)}
+                          onChange={(e) => setCode(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") void unlock();
+                          }}
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </Field>
+                    <Button
+                      variant="solid"
+                      block
+                      style={{ marginTop: 16 }}
+                      icon="key"
+                      disabled={gateBusy || !code}
+                      onClick={() => void unlock()}
+                    >
+                      {gateBusy ? "Checking…" : "Unlock console"}
+                    </Button>
+                  </>
+                )}
+
+                <div className="hint" style={{ marginTop: 16, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+                  The passcode is stored only as a salted PBKDF2 hash, and repeated wrong attempts are throttled.
+                  Because this is a client-side app, someone with full control of the browser can still bypass it —
+                  treat it as a speed bump, not a wall.
+                </div>
+              </CardBody>
+            </>
+          )}
         </Card>
       </>
     );

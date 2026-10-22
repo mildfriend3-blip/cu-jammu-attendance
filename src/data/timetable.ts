@@ -128,13 +128,14 @@ export const DEFAULT_SETTINGS = {
   examDate: null as string | null,
 };
 
-/** Default faculty passcode for the admin console (changeable in Settings). */
-export const DEFAULT_FACULTY_PASSCODE = "sentinel";
-
 /**
- * Default recipient for password-reset requests. Overridable at runtime in
- * Settings, which is what a student should use if this address is wrong for them.
- * Note this ships in the public source — move it to a VITE_ env var if it should
- * not be readable in the repo.
+ * Recipient for password-reset requests.
+ *
+ * Prefer setting VITE_FACULTY_EMAIL in the host (Vercel / Pages / .env.local) so
+ * the address is not committed to the repository; the literal below is only a
+ * fallback so a fresh clone still works. Note the address is visible in the
+ * shipped bundle either way — it has to be, since the student's mail client
+ * needs a recipient.
  */
-export const DEFAULT_FACULTY_EMAIL = "mildfriend3@gmail.com";
+export const FACULTY_EMAIL: string =
+  (import.meta.env?.VITE_FACULTY_EMAIL as string | undefined)?.trim() || "mildfriend3@gmail.com";

@@ -8,11 +8,14 @@ Local-first: there is no backend, no analytics and no tracking. Every record liv
 in the browser's `localStorage`, so the whole product is a static site you can host
 anywhere for free.
 
-> **Not an official record.** Accounts are a local convenience, not server-verified
-> authentication. Passwords are salted and hashed with PBKDF2-HMAC-SHA256
-> (210,000 iterations), but the verifier is stored in the browser, so anyone with
-> the device and devtools could read or replace it. Treat Sentinel as a personal
-> tracker and confirm attendance with the department.
+> **Not an official record, and not a security boundary.** This is a static
+> client-side app with no server, so anything running in the browser can read and
+> change anything it stores — it cannot be made unexploitable. Secrets are never
+> stored in clear text (PBKDF2-HMAC-SHA256, 210,000 iterations), the faculty gate
+> has no shipped default and is throttled, and the app makes no third-party
+> requests. Those measures remove disclosures and weak defaults; they do not
+> substitute for a server. Read [`docs/security.md`](docs/security.md) for the
+> full threat model, then confirm attendance with the department.
 
 ---
 
@@ -79,6 +82,10 @@ anywhere for free.
 
 **Platform**
 - Installable PWA with an offline service worker.
+- Self-hosted fonts — the app makes **no third-party requests at all**, so a
+  student's session contacts nothing but the host serving it.
+- Strict Content-Security-Policy, `no-referrer`, `nosniff`, frame denial and a
+  restrictive Permissions-Policy. See [`docs/security.md`](docs/security.md).
 - Command palette (`⌘K` or `/`), keyboard shortcuts, dark and light themes.
 - Local notifications for low attendance and upcoming classes.
 - Responsive down to phone width; print stylesheet for the timetable and reports.
@@ -100,7 +107,7 @@ npm run dev      # http://localhost:5173
 | `npm run typecheck` | `tsc --noEmit` only |
 | `npm run lint` | ESLint (flat config, typescript-eslint + react-hooks) |
 | `npm run verify` | lint → typecheck → test → build, in one go |
-| `npm test` | Unit tests for the CSV validator, password scorer, lock rules and recovery logic (110 assertions) |
+| `npm test` | Unit tests for the CSV validator, password scorer, lock rules and recovery logic (134 assertions) |
 
 Requires Node 18+ (see `.nvmrc`; Node 20 recommended). Formatting conventions
 live in `.editorconfig`.
@@ -116,6 +123,10 @@ live in `.editorconfig`.
 `.github/workflows/deploy.yml` builds and publishes on every push to `main`.
 Enable it once in **Settings → Pages → Build and deployment → Source:
 GitHub Actions**.
+
+Note: GitHub Pages cannot set response headers, so there the CSP is enforced via
+a meta tag injected at build time. Vercel and Netlify get the full header set
+from `vercel.json` and `public/_headers`.
 
 ### Vercel
 `vercel.json` pins the framework (`vite`), build command and output directory, so
@@ -169,6 +180,9 @@ Bundles the pure logic modules with esbuild and runs three suites under Node —
   passwords are never falsely rejected, and that any rejection always carries a
   non-empty reason (an empty one used to render as "Password needs ." with nothing
   after it).
+- `scripts/test-throttle.mjs` (24) — the passcode lockout schedule, a full
+  failure sequence against a fixed clock, reset on success, and the copy. Clocks
+  are injected so nothing waits on wall time.
 - `scripts/test-locks.mjs` (15) — freezing and reopening, re-lock idempotency,
   immutability of the helpers (they are used directly as React state), and the
   write guard.
@@ -183,6 +197,8 @@ Bundles the pure logic modules with esbuild and runs three suites under Node —
 
 - [`docs/timetable-data.md`](docs/timetable-data.md) — how the schedule data is
   shaped and how to adapt it to another class.
+- [`docs/security.md`](docs/security.md) — threat model, controls, and the honest
+  list of what this design cannot defend against.
 - [`docs/backend-migration.md`](docs/backend-migration.md) — the trade-offs and
   concrete steps for moving from local storage to a hosted backend.
 
@@ -201,6 +217,7 @@ src/
     analytics.ts               Series, rolling rates, streaks, heatmap, projections
     csv.ts                     CSV parsing + import validation (unit-tested)
     locks.ts                   Day-freeze rules (unit-tested)
+    throttle.ts                Faculty-gate lockout schedule (unit-tested)
     recovery.ts                Recovery-code rules, mailto builder, temp passwords
     export.ts                  CSV builders and file download
     date.ts                    ISO / weekday helpers
@@ -263,7 +280,9 @@ student's browser, for no user-visible benefit.
 | `sentinel.log.v1::<ROLL>` | Attendance log for one student |
 | `sentinel.settings.v1::<ROLL>` | Target, alert prefs, exam date |
 | `sentinel.locks.v1::<ROLL>` | Frozen days — `{ "YYYY-MM-DD": { lockedAt, by } }` |
-| `sentinel.accounts.v1` | Accounts; `sentinel.faculty.v1` holds the console passcode |
+| `sentinel.accounts.v1` | Accounts (PBKDF2 verifiers, never passwords) |
+| `sentinel.faculty.v2` | Faculty passcode, as a PBKDF2 verifier — never clear text |
+| `sentinel.facultyThrottle.v1` | Failed-attempt counter and lockout expiry |
 | `sentinel.faculty.v1` | Faculty console passcode |
 | `sentinel.theme.v1` | Theme preference |
 
